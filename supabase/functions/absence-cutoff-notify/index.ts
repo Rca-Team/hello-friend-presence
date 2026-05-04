@@ -23,7 +23,7 @@ serve(async (req) => {
       if (authErr || !user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 
       const svc = createClient(supabaseUrl, serviceKey);
-      const { data: role } = await svc.from('user_roles').select('role').eq('user_id', user.id).in('role', ['admin', 'moderator']).maybeSingle();
+      const { data: role } = await svc.from('user_roles').select('role').eq('user_id', user.id).in('role', ['admin', 'principal']).maybeSingle();
       if (!role) return new Response(JSON.stringify({ error: 'Admin access required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 

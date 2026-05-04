@@ -35,7 +35,7 @@ export function ProtectedRoute({ children, requireAdmin = false, requireRoles }:
       .from('user_roles')
       .select('role')
       .eq('user_id', userId)
-      .eq('role', 'moderator')
+      .eq('role', 'principal')
       .single();
 
     if (principalRole) return 'principal';

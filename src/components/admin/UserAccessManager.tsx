@@ -39,7 +39,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { CLASSES, SECTIONS } from '@/constants/schoolConfig';
 
-type Role = 'user' | 'moderator' | 'admin';
+type Role = 'user' | 'principal' | 'admin';
 
 interface RegisteredUser {
   id: string;
@@ -105,7 +105,7 @@ const UserAccessManager: React.FC = () => {
     }
     
     if (roleFilter !== 'all') {
-      filtered = filtered.filter(u => u.role === roleFilter || (roleFilter === 'moderator' && u.isTeacher));
+      filtered = filtered.filter(u => u.role === roleFilter || (roleFilter === 'principal' && u.isTeacher));
     }
     
     setFilteredUsers(filtered);
@@ -355,7 +355,7 @@ const UserAccessManager: React.FC = () => {
             </Badge>
             <Badge className={ROLE_CONFIG.moderator.color}>
               <ShieldCheck className="h-3 w-3 mr-1" />
-              {users.filter(u => u.role === 'moderator').length} Principals
+              {users.filter(u => u.role === 'principal').length} Principals
             </Badge>
             <Badge className="gap-1 bg-blue-500/10 text-blue-500">
               <GraduationCap className="h-3 w-3" />
@@ -395,7 +395,7 @@ const UserAccessManager: React.FC = () => {
                             <RoleIcon className="h-3 w-3 mr-1" />
                             {ROLE_CONFIG[user.role].label}
                           </Badge>
-                          {user.isTeacher && user.role !== 'moderator' && (
+                          {user.isTeacher && user.role !== 'principal' && (
                             <Badge variant="secondary" className="gap-1 bg-blue-500/10 text-blue-500">
                               <GraduationCap className="h-3 w-3" />
                               Teacher
