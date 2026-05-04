@@ -159,6 +159,24 @@ Deno.serve(async (req) => {
       timestamp: d.timestamp,
     }));
 
+    // Fetch awarded badges for this student (any matching identifier)
+    const badgeQueries = uniqueIds.map(uid =>
+      supabase
+        .from('student_badges')
+        .select('id, badge_name, badge_type, awarded_at, metadata')
+        .or(`user_id.eq.${uid},student_id.eq.${uid}`)
+        .order('awarded_at', { ascending: false })
+    );
+    const badgeResults = await Promise.all(badgeQueries);
+    const badgeSeen = new Set<string>();
+    const badges = badgeResults
+      .flatMap(r => r.data || [])
+      .filter((b: any) => {
+        if (badgeSeen.has(b.id)) return false;
+        badgeSeen.add(b.id);
+        return true;
+      });
+
     return new Response(
       JSON.stringify({
         found: true,
@@ -170,6 +188,7 @@ Deno.serve(async (req) => {
           image_url: matched.image_url || "",
         },
         attendance,
+        badges,
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
