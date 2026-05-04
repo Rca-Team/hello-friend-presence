@@ -634,43 +634,55 @@ export type Database = {
           avatar_url: string | null
           class: string | null
           created_at: string
+          display_name: string | null
           email: string | null
           full_name: string | null
           id: string
           metadata: Json
+          parent_email: string | null
+          parent_name: string | null
           phone: string | null
           role: string | null
           section: string | null
           updated_at: string
           user_id: string
+          username: string | null
         }
         Insert: {
           avatar_url?: string | null
           class?: string | null
           created_at?: string
+          display_name?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
           metadata?: Json
+          parent_email?: string | null
+          parent_name?: string | null
           phone?: string | null
           role?: string | null
           section?: string | null
           updated_at?: string
           user_id: string
+          username?: string | null
         }
         Update: {
           avatar_url?: string | null
           class?: string | null
           created_at?: string
+          display_name?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
           metadata?: Json
+          parent_email?: string | null
+          parent_name?: string | null
           phone?: string | null
           role?: string | null
           section?: string | null
           updated_at?: string
           user_id?: string
+          username?: string | null
         }
         Relationships: []
       }
