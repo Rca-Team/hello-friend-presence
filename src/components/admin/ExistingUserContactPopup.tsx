@@ -51,20 +51,25 @@ const ExistingUserContactPopup: React.FC = () => {
           ? JSON.parse(record.device_info) 
           : record.device_info;
 
-        // Check both device_info.metadata and profiles table for contact info
-        const hasContactInDeviceInfo = deviceInfo?.metadata?.parent_email && deviceInfo?.metadata?.parent_phone;
-        
+        // Required fields are parent_name + parent_phone (parent_email is optional on the register form).
+        // Treat the student as having contact info when both required fields are present.
+        const meta = deviceInfo?.metadata || {};
+        const hasContactInDeviceInfo = !!(
+          (meta.parent_name && (meta.parent_phone || meta.phone))
+        );
+
         let hasContactInProfiles = false;
-        if (record.user_id) {
+        if (!hasContactInDeviceInfo && record.user_id) {
           try {
             const { data: profileData, error: profileError } = await supabase
               .from('profiles')
-              .select('parent_email, parent_phone')
-              .eq('id', record.user_id)
-              .single();
-            
+              .select('metadata, phone')
+              .eq('user_id', record.user_id)
+              .maybeSingle();
+
             if (!profileError && profileData) {
-              hasContactInProfiles = !!(profileData.parent_email && profileData.parent_phone);
+              const pm: any = profileData.metadata || {};
+              hasContactInProfiles = !!(pm.parent_name && (pm.parent_phone || profileData.phone));
             }
           } catch (profileError) {
             console.warn('Error checking profile contact info:', profileError);
