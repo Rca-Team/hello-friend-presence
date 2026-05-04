@@ -267,7 +267,11 @@ async function cleanCloud(svc: ReturnType<typeof createClient>, callerUserId: st
   }
 
   for (const table of DELETE_ORDER) {
-    const { error } = await svc.from(table).delete().not("id", "is", null);
+    let q = svc.from(table).delete().not("id", "is", null);
+    if (table === "user_roles" || table === "profiles") {
+      q = svc.from(table).delete().neq("user_id", callerUserId);
+    }
+    const { error } = await q;
     if (error) console.error(`delete ${table}:`, error.message);
   }
 
