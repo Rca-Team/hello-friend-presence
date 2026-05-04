@@ -52,7 +52,7 @@ export const useUserRole = (): UseUserRoleReturn => {
         .from('user_roles')
         .select('role')
         .eq('user_id', user.id)
-        .eq('role', 'moderator')
+        .eq('role', 'principal')
         .single();
 
       if (modRole) {
