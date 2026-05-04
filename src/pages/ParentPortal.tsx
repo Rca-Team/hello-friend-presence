@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   UserCheck, UserX, Clock, Calendar, TrendingUp,
-  GraduationCap, CheckCircle2, AlertTriangle, XCircle, Search, ArrowLeft, RefreshCw
+  GraduationCap, CheckCircle2, AlertTriangle, XCircle, Search, ArrowLeft, RefreshCw, Award, Flame, Star, Trophy, Sparkles
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import Logo from '@/components/Logo';
@@ -32,6 +32,14 @@ interface DayRecord {
   time?: string;
 }
 
+interface BadgeItem {
+  id: string;
+  badge_name: string | null;
+  badge_type: string | null;
+  awarded_at: string;
+  metadata?: Record<string, any>;
+}
+
 const STORAGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/face-images/`;
 
 export default function ParentPortalPage() {
@@ -45,6 +53,8 @@ export default function ParentPortalPage() {
   const [trendData, setTrendData] = useState<{ day: string; pct: number }[]>([]);
   const [stats, setStats] = useState({ present: 0, late: 0, absent: 0, total: 0, rate: 0, streak: 0 });
   const [todayStatus, setTodayStatus] = useState<{ status: string; time?: string }>({ status: 'absent' });
+  const [badges, setBadges] = useState<BadgeItem[]>([]);
+  const [newBadgeId, setNewBadgeId] = useState<string | null>(null);
 
   const refreshData = useCallback(async () => {
     if (!studentId.trim() || !phoneNo.trim()) return;
@@ -56,11 +66,22 @@ export default function ParentPortalPage() {
       if (data?.found) {
         setChild(data.student);
         processAttendance(data.attendance);
+        const incoming: BadgeItem[] = data.badges || [];
+        setBadges(prev => {
+          const prevIds = new Set(prev.map(b => b.id));
+          const fresh = incoming.find(b => !prevIds.has(b.id));
+          if (fresh && prev.length > 0) {
+            setNewBadgeId(fresh.id);
+            toast({ title: '🏆 New Badge!', description: fresh.badge_name || 'Achievement unlocked' });
+            setTimeout(() => setNewBadgeId(null), 4000);
+          }
+          return incoming;
+        });
       }
     } catch (e) {
       console.error('Refresh error:', e);
     }
-  }, [studentId, phoneNo]);
+  }, [studentId, phoneNo, toast]);
 
   // Realtime: auto-refresh when attendance changes
   useEffect(() => {
@@ -71,6 +92,9 @@ export default function ParentPortalPage() {
         refreshData();
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'gate_entries' }, () => {
+        refreshData();
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'student_badges' }, () => {
         refreshData();
       })
       .subscribe();
@@ -121,6 +145,7 @@ export default function ParentPortalPage() {
 
       setChild(data.student);
       processAttendance(data.attendance);
+      setBadges(data.badges || []);
     } catch (e) {
       console.error('Search error:', e);
       toast({ title: 'Error', description: 'Something went wrong. Please try again.', variant: 'destructive' });
