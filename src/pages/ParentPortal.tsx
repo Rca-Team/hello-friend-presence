@@ -75,7 +75,19 @@ export default function ParentPortalPage() {
       })
       .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+    // Polling fallback (every 20s) — RLS hides new attendance rows from anon
+    // clients so postgres_changes alone won't always fire for the parent.
+    const interval = setInterval(() => { refreshData(); }, 20000);
+
+    // Refresh when tab becomes visible again
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshData(); };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      supabase.removeChannel(channel);
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [child, refreshData]);
 
   const handleSearch = async () => {
