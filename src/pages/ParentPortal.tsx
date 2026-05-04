@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
   UserCheck, UserX, Clock, Calendar, TrendingUp,
-  GraduationCap, CheckCircle2, AlertTriangle, XCircle, Search, ArrowLeft, RefreshCw
+  GraduationCap, CheckCircle2, AlertTriangle, XCircle, Search, ArrowLeft, RefreshCw, Award, Flame, Star, Trophy, Sparkles
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import Logo from '@/components/Logo';
@@ -32,6 +32,14 @@ interface DayRecord {
   time?: string;
 }
 
+interface BadgeItem {
+  id: string;
+  badge_name: string | null;
+  badge_type: string | null;
+  awarded_at: string;
+  metadata?: Record<string, any>;
+}
+
 const STORAGE_URL = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/face-images/`;
 
 export default function ParentPortalPage() {
@@ -45,6 +53,8 @@ export default function ParentPortalPage() {
   const [trendData, setTrendData] = useState<{ day: string; pct: number }[]>([]);
   const [stats, setStats] = useState({ present: 0, late: 0, absent: 0, total: 0, rate: 0, streak: 0 });
   const [todayStatus, setTodayStatus] = useState<{ status: string; time?: string }>({ status: 'absent' });
+  const [badges, setBadges] = useState<BadgeItem[]>([]);
+  const [newBadgeId, setNewBadgeId] = useState<string | null>(null);
 
   const refreshData = useCallback(async () => {
     if (!studentId.trim() || !phoneNo.trim()) return;
@@ -56,11 +66,22 @@ export default function ParentPortalPage() {
       if (data?.found) {
         setChild(data.student);
         processAttendance(data.attendance);
+        const incoming: BadgeItem[] = data.badges || [];
+        setBadges(prev => {
+          const prevIds = new Set(prev.map(b => b.id));
+          const fresh = incoming.find(b => !prevIds.has(b.id));
+          if (fresh && prev.length > 0) {
+            setNewBadgeId(fresh.id);
+            toast({ title: '🏆 New Badge!', description: fresh.badge_name || 'Achievement unlocked' });
+            setTimeout(() => setNewBadgeId(null), 4000);
+          }
+          return incoming;
+        });
       }
     } catch (e) {
       console.error('Refresh error:', e);
     }
-  }, [studentId, phoneNo]);
+  }, [studentId, phoneNo, toast]);
 
   // Realtime: auto-refresh when attendance changes
   useEffect(() => {
@@ -71,6 +92,9 @@ export default function ParentPortalPage() {
         refreshData();
       })
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'gate_entries' }, () => {
+        refreshData();
+      })
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'student_badges' }, () => {
         refreshData();
       })
       .subscribe();
@@ -121,6 +145,7 @@ export default function ParentPortalPage() {
 
       setChild(data.student);
       processAttendance(data.attendance);
+      setBadges(data.badges || []);
     } catch (e) {
       console.error('Search error:', e);
       toast({ title: 'Error', description: 'Something went wrong. Please try again.', variant: 'destructive' });
@@ -328,6 +353,58 @@ export default function ParentPortalPage() {
                 </div>
               </div>
             )}
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Trophy className="h-4 w-4 text-yellow-500" />
+                  Achievements & Badges
+                  <Badge variant="secondary" className="ml-auto text-[10px]">{badges.length}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {badges.length === 0 ? (
+                  <p className="text-xs text-muted-foreground text-center py-4">
+                    No badges yet. Keep up consistent attendance to earn rewards! ✨
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2">
+                    {badges.slice(0, 9).map(b => {
+                      const isNew = newBadgeId === b.id;
+                      const type = (b.badge_type || '').toLowerCase();
+                      const Icon = type.includes('streak') ? Flame
+                        : type.includes('star') ? Star
+                        : type.includes('trophy') ? Trophy
+                        : type.includes('spark') ? Sparkles
+                        : Award;
+                      const color = type.includes('streak') ? 'text-orange-500 bg-orange-500/10 border-orange-500/30'
+                        : type.includes('gold') || type.includes('trophy') ? 'text-yellow-500 bg-yellow-500/10 border-yellow-500/30'
+                        : type.includes('star') ? 'text-blue-500 bg-blue-500/10 border-blue-500/30'
+                        : 'text-primary bg-primary/10 border-primary/30';
+                      return (
+                        <div
+                          key={b.id}
+                          className={`relative rounded-xl border p-2 flex flex-col items-center text-center ${color} ${isNew ? 'animate-pulse ring-2 ring-primary ring-offset-2 ring-offset-background' : ''}`}
+                        >
+                          {isNew && (
+                            <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] font-bold px-1.5 py-0.5 rounded-full">
+                              NEW
+                            </span>
+                          )}
+                          <Icon className="h-6 w-6 mb-1" />
+                          <p className="text-[10px] font-semibold leading-tight line-clamp-2">
+                            {b.badge_name || b.badge_type || 'Badge'}
+                          </p>
+                          <p className="text-[8px] text-muted-foreground mt-0.5">
+                            {format(new Date(b.awarded_at), 'd MMM')}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader className="pb-2">
