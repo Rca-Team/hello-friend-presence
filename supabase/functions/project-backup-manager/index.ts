@@ -184,12 +184,7 @@ async function exportBackup(svc: ReturnType<typeof createClient>) {
   }
 
   const tables: Record<string, Array<Record<string, unknown>>> = {};
-  const { data: tableRows, error: tableErr } = await svc
-    .schema("information_schema")
-    .from("tables")
-    .select("table_name")
-    .eq("table_schema", "public")
-    .eq("table_type", "BASE TABLE");
+  const { data: tableRows, error: tableErr } = await svc.rpc("list_public_tables");
 
   if (tableErr) throw tableErr;
 

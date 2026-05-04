@@ -996,6 +996,12 @@ export type Database = {
           user_id: string
         }[]
       }
+      list_public_tables: {
+        Args: never
+        Returns: {
+          table_name: string
+        }[]
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
