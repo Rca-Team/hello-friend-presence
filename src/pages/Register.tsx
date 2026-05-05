@@ -164,7 +164,11 @@ const Register = () => {
           class_section: validData.department,
           address: validData.address,
         },
-        validData.department // category = class-section
+        validData.department, // category = class-section
+        {
+          sample_count: allDescriptors.length,
+          capture_mode: captureMode === 'auto' ? 'auto-10' : 'scan-3d',
+        }
       );
       if (registrationData) {
         // Store ALL 3D scan samples in face_descriptors for multi-angle matching
