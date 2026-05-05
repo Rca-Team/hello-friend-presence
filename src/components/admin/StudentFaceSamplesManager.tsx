@@ -81,6 +81,14 @@ const StudentFaceSamplesManager: React.FC = () => {
         if (p?.user_id && p?.display_name) profileMap.set(p.user_id, p.display_name);
       });
 
+      const employeeToUserId = new Map<string, string>();
+      (allAttRes.data || []).forEach((r: any) => {
+        const di = r.device_info || {};
+        const m = di.metadata || {};
+        const empKey = (m.employee_id || m.roll_number || di.employee_id || '').toString().trim();
+        if (r.user_id && empKey) employeeToUserId.set(empKey, r.user_id);
+      });
+
       // Build the student directory using the SAME logic as StudentDetailsTable so
       // every registered student (22) appears here even if their attendance rows
       // have a null user_id. The "key" is the stable identity used for grouping.
@@ -91,9 +99,10 @@ const StudentFaceSamplesManager: React.FC = () => {
       const keyForRecord = (r: any): string | null => {
         const di = r.device_info || {};
         const m = di.metadata || {};
-        const empId = m.employee_id || m.roll_number || di.employee_id;
-        // Prefer user_id so multiple records for the same auth user collapse to one group
-        return (r.user_id || empId || r.id) as string | null;
+        const empId = (m.employee_id || m.roll_number || di.employee_id || '').toString().trim();
+        const canonicalUserId = r.user_id || (empId ? employeeToUserId.get(empId) : null);
+        // Prefer canonical user_id, then employee key, then record id
+        return (canonicalUserId || empId || r.id) as string | null;
       };
 
       (allAttRes.data || []).forEach((r: any) => {
