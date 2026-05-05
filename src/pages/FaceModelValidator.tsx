@@ -244,7 +244,7 @@ const FaceModelValidator = () => {
                         <CartesianGrid />
                         <XAxis type="number" dataKey="x" name="x" />
                         <YAxis type="number" dataKey="y" name="y" />
-                        <RechartsTooltip formatter={(value: number, name: string) => [Number(value).toFixed(6), name]} />
+                        <RechartsTooltip formatter={(value, name) => [Number(value).toFixed(6), String(name)]} />
                         <Scatter name="descriptor_cloud" data={descriptorScatter} fill="var(--primary)" />
                       </ScatterChart>
                     </ResponsiveContainer>
@@ -262,7 +262,7 @@ const FaceModelValidator = () => {
                         <CartesianGrid />
                         <XAxis type="number" dataKey="x" name="x" />
                         <YAxis type="number" dataKey="y" name="y" />
-                        <RechartsTooltip formatter={(value: number, name: string) => [Number(value).toFixed(6), name]} />
+                        <RechartsTooltip formatter={(value, name) => [Number(value).toFixed(6), String(name)]} />
                         <Scatter name="point_cloud_3d_equivalent" data={pointCloudScatter} fill="var(--accent)" />
                       </ScatterChart>
                     </ResponsiveContainer>
