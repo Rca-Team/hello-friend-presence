@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Loader2, Search, Download, Eye, ShieldAlert } from 'lucide-react';
+import { Canvas } from '@react-three/fiber';
+import { OrbitControls, Points } from '@react-three/drei';
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -19,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { useUserRole } from '@/hooks/useUserRole';
 import { supabase } from '@/integrations/supabase/client';
+import * as THREE from 'three';
 
 type FaceModelArtifact = {
   version?: string;
@@ -46,6 +49,56 @@ type RegistrationRecord = {
       };
     };
   } | null;
+};
+
+type PointCloudPoint = { id: number; x: number; y: number; z: number };
+
+const PointCloud3DViewer = ({ points }: { points: PointCloudPoint[] }) => {
+  const geometry = useMemo(() => {
+    const validPoints = points.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z));
+    if (validPoints.length === 0) return new THREE.BufferGeometry();
+
+    const xs = validPoints.map((p) => p.x);
+    const ys = validPoints.map((p) => p.y);
+    const zs = validPoints.map((p) => p.z);
+    const minX = Math.min(...xs);
+    const maxX = Math.max(...xs);
+    const minY = Math.min(...ys);
+    const maxY = Math.max(...ys);
+    const minZ = Math.min(...zs);
+    const maxZ = Math.max(...zs);
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const centerZ = (minZ + maxZ) / 2;
+    const span = Math.max(maxX - minX, maxY - minY, maxZ - minZ, 1e-6);
+    const scale = 3 / span;
+
+    const positions = new Float32Array(validPoints.length * 3);
+    validPoints.forEach((point, index) => {
+      const base = index * 3;
+      positions[base] = (point.x - centerX) * scale;
+      positions[base + 1] = (point.y - centerY) * scale;
+      positions[base + 2] = (point.z - centerZ) * scale;
+    });
+
+    const bufferGeometry = new THREE.BufferGeometry();
+    bufferGeometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    return bufferGeometry;
+  }, [points]);
+
+  return (
+    <Canvas camera={{ position: [2.2, 2.2, 2.2], fov: 55 }}>
+      <color attach="background" args={['#0b1020']} />
+      <ambientLight intensity={0.65} />
+      <pointLight position={[3, 4, 5]} intensity={0.9} />
+      <gridHelper args={[8, 8, '#334155', '#1e293b']} />
+      <axesHelper args={[2]} />
+      <Points geometry={geometry}>
+        <pointsMaterial size={0.08} color="#22d3ee" sizeAttenuation />
+      </Points>
+      <OrbitControls makeDefault enablePan enableZoom enableRotate />
+    </Canvas>
+  );
 };
 
 const FaceModelValidator = () => {
@@ -256,16 +309,8 @@ const FaceModelValidator = () => {
                     <CardTitle>point_cloud_3d_equivalent</CardTitle>
                     <CardDescription>Stored 3D-equivalent points projected on X/Y with Z in tooltip.</CardDescription>
                   </CardHeader>
-                  <CardContent className="h-80">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <ScatterChart margin={{ top: 12, right: 12, left: 8, bottom: 8 }}>
-                        <CartesianGrid />
-                        <XAxis type="number" dataKey="x" name="x" />
-                        <YAxis type="number" dataKey="y" name="y" />
-                        <RechartsTooltip formatter={(value, name) => [Number(value).toFixed(6), String(name)]} />
-                        <Scatter name="point_cloud_3d_equivalent" data={pointCloudScatter} fill="var(--accent)" />
-                      </ScatterChart>
-                    </ResponsiveContainer>
+                  <CardContent className="h-80 overflow-hidden rounded-md border">
+                    <PointCloud3DViewer points={pointCloudScatter} />
                   </CardContent>
                 </Card>
               </div>
