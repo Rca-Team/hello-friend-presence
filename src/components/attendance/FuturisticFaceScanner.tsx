@@ -453,12 +453,18 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
       setPendingManualReviews(reviewQueue);
 
       // Set scan result for primary face (first recognized, or first in list)
-      const primaryResult = results.find(r => r.status !== 'unrecognized') || results[0];
-      if (primaryResult && primaryResult.status !== 'unrecognized') {
+      const primaryResult = results.find(r => r.status === 'present' || r.status === 'late' || r.status === 'review') || results[0];
+      if (primaryResult && (primaryResult.status === 'present' || primaryResult.status === 'late')) {
         setScanResult({
           recognized: true,
           name: primaryResult.name,
           confidence: primaryResult.confidence
+        });
+      } else if (primaryResult?.status === 'review') {
+        setScanResult({
+          recognized: false,
+          name: primaryResult.name,
+          confidence: primaryResult.confidence,
         });
       } else {
         setScanResult({ recognized: false });
@@ -515,11 +521,60 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
     }
   }, [modelsLoaded, faceCount, onScanComplete, toast]);
 
+  const confirmManualReview = useCallback(async (review: PendingManualReview) => {
+    try {
+      setIsSavingReviewId(review.id);
+      await recordAttendance(
+        review.employee.id,
+        review.status,
+        review.confidence,
+        {
+          metadata: {
+            name: review.employee.name,
+            employee_id: review.employee.employee_id,
+            strict_mode: true,
+            strict_fused_score: review.strictScore,
+            strict_threshold_target: review.thresholdTarget,
+            manual_confirmation: true,
+          },
+        },
+        review.capturedImageDataUrl,
+      );
+
+      sendAutoParentNotification(
+        review.employee.id,
+        review.employee.name || 'Student',
+        review.status,
+        review.employee.avatar_url || review.employee.firebase_image_url,
+      ).catch(err => console.error('Auto notification error:', err));
+
+      setPendingManualReviews((prev) => prev.filter((item) => item.id !== review.id));
+      toast({
+        title: 'Attendance Confirmed',
+        description: `${review.employee.name} marked as ${review.status} after manual verification.`,
+      });
+    } catch (error) {
+      console.error('Manual confirmation failed:', error);
+      toast({
+        title: 'Could not confirm attendance',
+        description: 'Please retry confirmation.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingReviewId(null);
+    }
+  }, [toast]);
+
+  const rejectManualReview = useCallback((reviewId: string) => {
+    setPendingManualReviews((prev) => prev.filter((item) => item.id !== reviewId));
+  }, []);
+
   const resetScanner = () => {
     setScanResult(null);
     setScanPhase('idle');
     setIsScanning(false);
     setRecognizedFaces([]);
+    setPendingManualReviews([]);
   };
 
   return (
