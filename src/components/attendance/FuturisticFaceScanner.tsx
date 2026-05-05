@@ -45,6 +45,22 @@ interface DetectedFace {
   descriptor?: Float32Array;
 }
 
+interface PendingManualReview {
+  id: string;
+  employee: {
+    id: string;
+    name: string;
+    employee_id?: string;
+    avatar_url?: string;
+    firebase_image_url?: string;
+  };
+  status: 'present' | 'late';
+  confidence: number;
+  strictScore: number;
+  thresholdTarget: number;
+  capturedImageDataUrl?: string;
+}
+
 const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanComplete }) => {
   const { toast } = useToast();
   const webcamRef = useRef<Webcam>(null);
@@ -61,6 +77,8 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
   const [detectedFaces, setDetectedFaces] = useState<DetectedFace[]>([]);
   const [faceCount, setFaceCount] = useState(0);
   const [recognizedFaces, setRecognizedFaces] = useState<RecognizedFaceData[]>([]);
+  const [pendingManualReviews, setPendingManualReviews] = useState<PendingManualReview[]>([]);
+  const [isSavingReviewId, setIsSavingReviewId] = useState<string | null>(null);
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const [systemStatus, setSystemStatus] = useState({
     neural: true,
