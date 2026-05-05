@@ -40,6 +40,7 @@ export const registerFace = async (
   faceModel?: {
     sample_count: number;
     capture_mode: 'auto-10' | 'scan-3d';
+    storage_model_path?: string;
   }
 ): Promise<any> => {
   try {
