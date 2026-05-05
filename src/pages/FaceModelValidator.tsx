@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Loader2, Search, Download, Eye, ShieldAlert } from 'lucide-react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Points } from '@react-three/drei';
+import { OrbitControls } from '@react-three/drei';
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -93,9 +93,10 @@ const PointCloud3DViewer = ({ points }: { points: PointCloudPoint[] }) => {
       <pointLight position={[3, 4, 5]} intensity={0.9} />
       <gridHelper args={[8, 8, '#334155', '#1e293b']} />
       <axesHelper args={[2]} />
-      <Points geometry={geometry}>
+      <points>
+        <primitive object={geometry} attach="geometry" />
         <pointsMaterial size={0.08} color="#22d3ee" sizeAttenuation />
-      </Points>
+      </points>
       <OrbitControls makeDefault enablePan enableZoom enableRotate />
     </Canvas>
   );
