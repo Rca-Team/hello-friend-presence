@@ -112,7 +112,7 @@ function scoreAgainst3DModel(inputDescriptor: Float32Array, model: FaceModelArti
 } {
   const descriptorCloud = (model.descriptor_cloud || [])
     .map((d) => (Array.isArray(d) && d.length === 128 ? new Float32Array(d) : null))
-    .filter((d): d is Float32Array => d !== null);
+    .filter((d) => d !== null) as Float32Array[];
 
   const bestDescriptorDistance = descriptorCloud.length
     ? descriptorCloud.reduce((best, descriptor) => Math.min(best, euclideanDistance(inputDescriptor, descriptor)), Infinity)
@@ -298,6 +298,15 @@ export async function recognizeFace(faceDescriptor: Float32Array): Promise<Recog
           avatarUrl = profileData.avatar_url;
         }
         
+        const baseConfidence = Math.max(0, 1 - bestMatch.distance);
+        const model3D = await getFaceModelForUser(bestMatch.userId);
+        const modelScores = model3D
+          ? scoreAgainst3DModel(inputDescriptor, model3D)
+          : { descriptorScore: 0, pointCloudScore: 0, fused3DScore: 0 };
+        const fusedScore = model3D
+          ? clamp01(baseConfidence * 0.55 + modelScores.fused3DScore * 0.45)
+          : baseConfidence;
+
         return {
           recognized: true,
           employee: {
@@ -310,7 +319,14 @@ export async function recognizeFace(faceDescriptor: Float32Array): Promise<Recog
             avatar_url: avatarUrl,
             trainingSamples: bestMatch.sampleCount
           },
-          confidence: Math.max(0, 1 - bestMatch.distance)
+          confidence: fusedScore,
+          strictMetrics: {
+            fusedScore,
+            descriptorScore: model3D ? modelScores.descriptorScore : baseConfidence,
+            pointCloudScore: model3D ? modelScores.pointCloudScore : 0,
+            thresholdTarget: STRICT_AUTO_THRESHOLD,
+            autoMarkEligible: !!model3D && fusedScore >= STRICT_AUTO_THRESHOLD,
+          },
         };
       }
     }
@@ -395,6 +411,7 @@ export async function recognizeFace(faceDescriptor: Float32Array): Promise<Recog
         }
       }
       
+      const legacyConfidence = Math.max(0, 1 - legacyBestDistance);
       return {
         recognized: true,
         employee: {
@@ -406,7 +423,14 @@ export async function recognizeFace(faceDescriptor: Float32Array): Promise<Recog
           firebase_image_url: employeeData.firebase_image_url || '',
           avatar_url: avatarUrl,
         },
-        confidence: Math.max(0, 1 - legacyBestDistance)
+        confidence: legacyConfidence,
+        strictMetrics: {
+          fusedScore: legacyConfidence,
+          descriptorScore: legacyConfidence,
+          pointCloudScore: 0,
+          thresholdTarget: STRICT_AUTO_THRESHOLD,
+          autoMarkEligible: false,
+        },
       };
     }
     
