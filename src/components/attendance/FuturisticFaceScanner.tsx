@@ -45,6 +45,22 @@ interface DetectedFace {
   descriptor?: Float32Array;
 }
 
+interface PendingManualReview {
+  id: string;
+  employee: {
+    id: string;
+    name: string;
+    employee_id?: string;
+    avatar_url?: string;
+    firebase_image_url?: string;
+  };
+  status: 'present' | 'late';
+  confidence: number;
+  strictScore: number;
+  thresholdTarget: number;
+  capturedImageDataUrl?: string;
+}
+
 const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanComplete }) => {
   const { toast } = useToast();
   const webcamRef = useRef<Webcam>(null);
@@ -61,6 +77,8 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
   const [detectedFaces, setDetectedFaces] = useState<DetectedFace[]>([]);
   const [faceCount, setFaceCount] = useState(0);
   const [recognizedFaces, setRecognizedFaces] = useState<RecognizedFaceData[]>([]);
+  const [pendingManualReviews, setPendingManualReviews] = useState<PendingManualReview[]>([]);
+  const [isSavingReviewId, setIsSavingReviewId] = useState<string | null>(null);
   const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
   const [systemStatus, setSystemStatus] = useState({
     neural: true,
@@ -290,6 +308,7 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
         20000,
         'Face detection timed out. Please ensure good lighting and try again.'
       );
+      const capturedImageDataUrl = webcamRef.current?.getScreenshot() || undefined;
 
       console.log(`Found ${fullDetections.length} faces to process`);
 
@@ -302,6 +321,7 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
 
       // Process all detected faces
       const results: RecognizedFaceData[] = [];
+      const reviewQueue: PendingManualReview[] = [];
       let recognizedCount = 0;
 
       // Get cutoff time from settings - with timeout
@@ -330,40 +350,81 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
           
           if (result.recognized && result.employee) {
             const status = isPastCutoff ? 'late' : 'present';
+            const strictMetrics = result.strictMetrics;
+            const strictScore = strictMetrics?.fusedScore ?? (result.confidence ?? 0);
+            const thresholdTarget = strictMetrics?.thresholdTarget ?? 0.99;
+            const autoMarkEligible = !!strictMetrics?.autoMarkEligible;
             
-            // Record attendance for each recognized face - with timeout
-            try {
-              await withTimeout(
-                recordAttendance(
-                  result.employee.id,
-                  status,
-                  result.confidence,
-                  { metadata: { name: result.employee.name } }
-                ),
-                5000,
-                'Attendance recording timed out'
-              );
-            } catch (recordErr) {
-              console.error('Failed to record attendance:', recordErr);
+            if (autoMarkEligible) {
+              try {
+                await withTimeout(
+                  recordAttendance(
+                    result.employee.id,
+                    status,
+                    result.confidence,
+                    {
+                      metadata: {
+                        name: result.employee.name,
+                        strict_mode: true,
+                        strict_fused_score: strictScore,
+                        strict_threshold_target: thresholdTarget,
+                      },
+                    },
+                    capturedImageDataUrl,
+                  ),
+                  5000,
+                  'Attendance recording timed out'
+                );
+                recognizedCount++;
+              } catch (recordErr) {
+                console.error('Failed to record attendance:', recordErr);
+              }
+
+              sendAutoParentNotification(
+                result.employee.id,
+                result.employee.name || 'Student',
+                status,
+                result.employee.avatar_url || result.employee.firebase_image_url
+              ).catch(err => console.error('Auto notification error:', err));
+
+              results.push({
+                id: result.employee.id,
+                name: result.employee.name || 'Unknown',
+                status,
+                confidence: (result.confidence ?? 0) * 100,
+                strictScore,
+                thresholdTarget,
+                imageUrl: result.employee.avatar_url || result.employee.firebase_image_url,
+                box: { x: box.x, y: box.y, width: box.width, height: box.height }
+              });
+            } else {
+              reviewQueue.push({
+                id: `${result.employee.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+                employee: {
+                  id: result.employee.id,
+                  name: result.employee.name || 'Unknown',
+                  employee_id: result.employee.employee_id,
+                  avatar_url: result.employee.avatar_url,
+                  firebase_image_url: result.employee.firebase_image_url,
+                },
+                status,
+                confidence: result.confidence ?? 0,
+                strictScore,
+                thresholdTarget,
+                capturedImageDataUrl,
+              });
+
+              results.push({
+                id: `review-${result.employee.id}`,
+                name: result.employee.name || 'Unknown',
+                status: 'review',
+                confidence: (result.confidence ?? 0) * 100,
+                strictScore,
+                thresholdTarget,
+                imageUrl: result.employee.avatar_url || result.employee.firebase_image_url,
+                box: { x: box.x, y: box.y, width: box.width, height: box.height }
+              });
             }
-            
-            // Send automatic parent notification (non-blocking - fire and forget)
-            sendAutoParentNotification(
-              result.employee.id,
-              result.employee.name || 'Student',
-              status,
-              result.employee.avatar_url || result.employee.firebase_image_url
-            ).catch(err => console.error('Auto notification error:', err));
-            
-            results.push({
-              id: result.employee.id,
-              name: result.employee.name || 'Unknown',
-              status: status,
-              confidence: result.confidence ? result.confidence * 100 : 0,
-              imageUrl: result.employee.avatar_url || result.employee.firebase_image_url,
-              box: { x: box.x, y: box.y, width: box.width, height: box.height }
-            });
-            recognizedCount++;
           } else {
             results.push({
               id: `unknown-${Math.random().toString(36).substr(2, 9)}`,
@@ -389,14 +450,21 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
       await new Promise(r => setTimeout(r, 300));
       setScanPhase('complete');
       setRecognizedFaces(results);
+      setPendingManualReviews(reviewQueue);
 
       // Set scan result for primary face (first recognized, or first in list)
-      const primaryResult = results.find(r => r.status !== 'unrecognized') || results[0];
-      if (primaryResult && primaryResult.status !== 'unrecognized') {
+      const primaryResult = results.find(r => r.status === 'present' || r.status === 'late' || r.status === 'review') || results[0];
+      if (primaryResult && (primaryResult.status === 'present' || primaryResult.status === 'late')) {
         setScanResult({
           recognized: true,
           name: primaryResult.name,
           confidence: primaryResult.confidence
+        });
+      } else if (primaryResult?.status === 'review') {
+        setScanResult({
+          recognized: false,
+          name: primaryResult.name,
+          confidence: primaryResult.confidence,
         });
       } else {
         setScanResult({ recognized: false });
@@ -404,12 +472,20 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
 
       // Show summary toast
       const unrecognizedCount = results.length - recognizedCount;
+      const reviewCount = reviewQueue.length;
       if (recognizedCount > 0) {
         toast({
           title: `✓ ${recognizedCount} Attendance${recognizedCount > 1 ? 's' : ''} Recorded`,
-          description: unrecognizedCount > 0 
-            ? `${unrecognizedCount} face${unrecognizedCount > 1 ? 's' : ''} not recognized`
-            : `All ${recognizedCount} face${recognizedCount > 1 ? 's' : ''} recognized!`,
+          description: reviewCount > 0
+            ? `${reviewCount} scan${reviewCount > 1 ? 's' : ''} requires manual confirmation`
+            : unrecognizedCount > 0
+              ? `${unrecognizedCount} face${unrecognizedCount > 1 ? 's' : ''} not recognized`
+              : `All ${recognizedCount} face${recognizedCount > 1 ? 's' : ''} auto-validated in strict mode!`,
+        });
+      } else if (reviewCount > 0) {
+        toast({
+          title: 'Manual Confirmation Required',
+          description: `${reviewCount} candidate${reviewCount > 1 ? 's' : ''} is below strict 99% threshold.`,
         });
       } else {
         toast({
@@ -445,11 +521,60 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
     }
   }, [modelsLoaded, faceCount, onScanComplete, toast]);
 
+  const confirmManualReview = useCallback(async (review: PendingManualReview) => {
+    try {
+      setIsSavingReviewId(review.id);
+      await recordAttendance(
+        review.employee.id,
+        review.status,
+        review.confidence,
+        {
+          metadata: {
+            name: review.employee.name,
+            employee_id: review.employee.employee_id,
+            strict_mode: true,
+            strict_fused_score: review.strictScore,
+            strict_threshold_target: review.thresholdTarget,
+            manual_confirmation: true,
+          },
+        },
+        review.capturedImageDataUrl,
+      );
+
+      sendAutoParentNotification(
+        review.employee.id,
+        review.employee.name || 'Student',
+        review.status,
+        review.employee.avatar_url || review.employee.firebase_image_url,
+      ).catch(err => console.error('Auto notification error:', err));
+
+      setPendingManualReviews((prev) => prev.filter((item) => item.id !== review.id));
+      toast({
+        title: 'Attendance Confirmed',
+        description: `${review.employee.name} marked as ${review.status} after manual verification.`,
+      });
+    } catch (error) {
+      console.error('Manual confirmation failed:', error);
+      toast({
+        title: 'Could not confirm attendance',
+        description: 'Please retry confirmation.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingReviewId(null);
+    }
+  }, [toast]);
+
+  const rejectManualReview = useCallback((reviewId: string) => {
+    setPendingManualReviews((prev) => prev.filter((item) => item.id !== reviewId));
+  }, []);
+
   const resetScanner = () => {
     setScanResult(null);
     setScanPhase('idle');
     setIsScanning(false);
     setRecognizedFaces([]);
+    setPendingManualReviews([]);
   };
 
   return (
@@ -734,6 +859,54 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
           )}
         </Button>
       </div>
+
+      {pendingManualReviews.length > 0 && (
+        <div className="mt-5 space-y-3 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-blue-200">
+              Manual confirmation required ({pendingManualReviews.length})
+            </p>
+            <Badge variant="secondary" className="bg-blue-500/20 text-blue-200 border-blue-400/30">
+              Strict 3D mode
+            </Badge>
+          </div>
+
+          <div className="space-y-2">
+            {pendingManualReviews.map((review) => (
+              <div
+                key={review.id}
+                className="flex flex-col gap-2 rounded-xl border border-blue-400/30 bg-slate-950/40 p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="text-sm font-medium text-white">{review.employee.name}</p>
+                  <p className="text-xs text-blue-200/90">
+                    Candidate {(review.confidence * 100).toFixed(1)}% • 3D score {(review.strictScore * 100).toFixed(1)}% • target {(review.thresholdTarget * 100).toFixed(0)}%
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => rejectManualReview(review.id)}
+                    disabled={isSavingReviewId === review.id}
+                    className="border-red-400/40 text-red-200 hover:bg-red-500/20"
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => confirmManualReview(review)}
+                    disabled={isSavingReviewId === review.id}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    {isSavingReviewId === review.id ? 'Saving...' : 'Confirm'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-5">

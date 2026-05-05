@@ -19,6 +19,13 @@ interface RecognitionResult {
   recognized: boolean;
   employee?: Employee;
   confidence?: number;
+  strictMetrics?: {
+    fusedScore: number;
+    descriptorScore: number;
+    pointCloudScore: number;
+    thresholdTarget: number;
+    autoMarkEligible: boolean;
+  };
 }
 
 interface DeviceInfo {
@@ -34,6 +41,113 @@ interface DeviceInfo {
   timestamp?: string;
   registration?: boolean;
   firebase_image_url?: string;
+}
+
+interface FaceModelArtifact {
+  descriptor_cloud?: number[][];
+  point_cloud_3d_equivalent?: Array<{ x?: number; y?: number; z?: number }>;
+}
+
+const faceModelCache = new Map<string, { expiresAt: number; model: FaceModelArtifact | null }>();
+const FACE_MODEL_CACHE_TTL_MS = 3 * 60 * 1000;
+const STRICT_AUTO_THRESHOLD = 0.99;
+
+const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+
+async function getFaceModelForUser(userId: string): Promise<FaceModelArtifact | null> {
+  const cached = faceModelCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.model;
+  }
+
+  try {
+    const { data: records, error } = await supabase
+      .from('attendance_records')
+      .select('device_info')
+      .eq('user_id', userId)
+      .eq('status', 'registered')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    if (error || !records?.length) {
+      faceModelCache.set(userId, { expiresAt: Date.now() + FACE_MODEL_CACHE_TTL_MS, model: null });
+      return null;
+    }
+
+    const path = records
+      .map((record) => ((record.device_info as DeviceInfo | null)?.metadata as any)?.face_model?.storage_model_path)
+      .find(Boolean);
+
+    if (!path) {
+      faceModelCache.set(userId, { expiresAt: Date.now() + FACE_MODEL_CACHE_TTL_MS, model: null });
+      return null;
+    }
+
+    const { data: blob, error: downloadError } = await supabase.storage
+      .from('student-registration-faces')
+      .download(path);
+
+    if (downloadError || !blob) {
+      faceModelCache.set(userId, { expiresAt: Date.now() + FACE_MODEL_CACHE_TTL_MS, model: null });
+      return null;
+    }
+
+    const parsed = JSON.parse(await blob.text()) as FaceModelArtifact;
+    const model = {
+      descriptor_cloud: Array.isArray(parsed.descriptor_cloud) ? parsed.descriptor_cloud : [],
+      point_cloud_3d_equivalent: Array.isArray(parsed.point_cloud_3d_equivalent) ? parsed.point_cloud_3d_equivalent : [],
+    };
+    faceModelCache.set(userId, { expiresAt: Date.now() + FACE_MODEL_CACHE_TTL_MS, model });
+    return model;
+  } catch {
+    faceModelCache.set(userId, { expiresAt: Date.now() + FACE_MODEL_CACHE_TTL_MS, model: null });
+    return null;
+  }
+}
+
+function scoreAgainst3DModel(inputDescriptor: Float32Array, model: FaceModelArtifact): {
+  descriptorScore: number;
+  pointCloudScore: number;
+  fused3DScore: number;
+} {
+  const descriptorCloud = (model.descriptor_cloud || [])
+    .map((d) => (Array.isArray(d) && d.length === 128 ? new Float32Array(d) : null))
+    .filter((d) => d !== null) as Float32Array[];
+
+  const bestDescriptorDistance = descriptorCloud.length
+    ? descriptorCloud.reduce((best, descriptor) => Math.min(best, euclideanDistance(inputDescriptor, descriptor)), Infinity)
+    : Infinity;
+
+  const descriptorScore = Number.isFinite(bestDescriptorDistance)
+    ? clamp01(1 - bestDescriptorDistance / 0.8)
+    : 0;
+
+  const ix = Number(inputDescriptor[0] ?? 0);
+  const iy = Number(inputDescriptor[1] ?? 0);
+  const iz = Number(inputDescriptor[2] ?? 0);
+  const pointCloud = (model.point_cloud_3d_equivalent || []).filter((point) =>
+    Number.isFinite(point.x) && Number.isFinite(point.y) && Number.isFinite(point.z),
+  );
+
+  const bestPointDistance = pointCloud.length
+    ? pointCloud.reduce((best, point) => {
+        const dx = ix - Number(point.x);
+        const dy = iy - Number(point.y);
+        const dz = iz - Number(point.z);
+        const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        return Math.min(best, distance);
+      }, Infinity)
+    : Infinity;
+
+  const pointCloudScore = Number.isFinite(bestPointDistance)
+    ? clamp01(1 - bestPointDistance / 1.5)
+    : 0;
+
+  return {
+    descriptorScore,
+    pointCloudScore,
+    fused3DScore: clamp01(descriptorScore * 0.7 + pointCloudScore * 0.3),
+  };
 }
 
 const sanitizeSegment = (value: string) =>
@@ -184,6 +298,15 @@ export async function recognizeFace(faceDescriptor: Float32Array): Promise<Recog
           avatarUrl = profileData.avatar_url;
         }
         
+        const baseConfidence = Math.max(0, 1 - bestMatch.distance);
+        const model3D = await getFaceModelForUser(bestMatch.userId);
+        const modelScores = model3D
+          ? scoreAgainst3DModel(inputDescriptor, model3D)
+          : { descriptorScore: 0, pointCloudScore: 0, fused3DScore: 0 };
+        const fusedScore = model3D
+          ? clamp01(baseConfidence * 0.55 + modelScores.fused3DScore * 0.45)
+          : baseConfidence;
+
         return {
           recognized: true,
           employee: {
@@ -196,7 +319,14 @@ export async function recognizeFace(faceDescriptor: Float32Array): Promise<Recog
             avatar_url: avatarUrl,
             trainingSamples: bestMatch.sampleCount
           },
-          confidence: Math.max(0, 1 - bestMatch.distance)
+          confidence: fusedScore,
+          strictMetrics: {
+            fusedScore,
+            descriptorScore: model3D ? modelScores.descriptorScore : baseConfidence,
+            pointCloudScore: model3D ? modelScores.pointCloudScore : 0,
+            thresholdTarget: STRICT_AUTO_THRESHOLD,
+            autoMarkEligible: !!model3D && fusedScore >= STRICT_AUTO_THRESHOLD,
+          },
         };
       }
     }
@@ -281,6 +411,7 @@ export async function recognizeFace(faceDescriptor: Float32Array): Promise<Recog
         }
       }
       
+      const legacyConfidence = Math.max(0, 1 - legacyBestDistance);
       return {
         recognized: true,
         employee: {
@@ -292,7 +423,14 @@ export async function recognizeFace(faceDescriptor: Float32Array): Promise<Recog
           firebase_image_url: employeeData.firebase_image_url || '',
           avatar_url: avatarUrl,
         },
-        confidence: Math.max(0, 1 - legacyBestDistance)
+        confidence: legacyConfidence,
+        strictMetrics: {
+          fusedScore: legacyConfidence,
+          descriptorScore: legacyConfidence,
+          pointCloudScore: 0,
+          thresholdTarget: STRICT_AUTO_THRESHOLD,
+          autoMarkEligible: false,
+        },
       };
     }
     
