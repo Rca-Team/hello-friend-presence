@@ -860,6 +860,54 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
         </Button>
       </div>
 
+      {pendingManualReviews.length > 0 && (
+        <div className="mt-5 space-y-3 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-blue-200">
+              Manual confirmation required ({pendingManualReviews.length})
+            </p>
+            <Badge variant="secondary" className="bg-blue-500/20 text-blue-200 border-blue-400/30">
+              Strict 3D mode
+            </Badge>
+          </div>
+
+          <div className="space-y-2">
+            {pendingManualReviews.map((review) => (
+              <div
+                key={review.id}
+                className="flex flex-col gap-2 rounded-xl border border-blue-400/30 bg-slate-950/40 p-3 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div>
+                  <p className="text-sm font-medium text-white">{review.employee.name}</p>
+                  <p className="text-xs text-blue-200/90">
+                    Candidate {(review.confidence * 100).toFixed(1)}% • 3D score {(review.strictScore * 100).toFixed(1)}% • target {(review.thresholdTarget * 100).toFixed(0)}%
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => rejectManualReview(review.id)}
+                    disabled={isSavingReviewId === review.id}
+                    className="border-red-400/40 text-red-200 hover:bg-red-500/20"
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => confirmManualReview(review)}
+                    disabled={isSavingReviewId === review.id}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    {isSavingReviewId === review.id ? 'Saving...' : 'Confirm'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Quick Stats */}
       <div className="grid grid-cols-3 gap-2 sm:gap-3 mt-5">
         {[
