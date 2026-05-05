@@ -9,8 +9,10 @@ const STORAGE_BASE_URL = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object
 export interface RecognizedFaceData {
   id: string;
   name: string;
-  status: 'present' | 'late' | 'unrecognized';
+  status: 'present' | 'late' | 'review' | 'unrecognized';
   confidence?: number;
+  strictScore?: number;
+  thresholdTarget?: number;
   imageUrl?: string;
   box: { x: number; y: number; width: number; height: number };
 }
@@ -34,6 +36,7 @@ const LiveFaceOverlay: React.FC<LiveFaceOverlayProps> = ({
     switch (status) {
       case 'present': return 'bg-green-500 border-green-400';
       case 'late': return 'bg-yellow-500 border-yellow-400';
+      case 'review': return 'bg-blue-500 border-blue-400';
       case 'unrecognized': return 'bg-red-500 border-red-400';
       default: return 'bg-slate-500 border-slate-400';
     }
@@ -43,6 +46,7 @@ const LiveFaceOverlay: React.FC<LiveFaceOverlayProps> = ({
     switch (status) {
       case 'present': return <CheckCircle className="h-3 w-3" />;
       case 'late': return <AlertCircle className="h-3 w-3" />;
+      case 'review': return <AlertCircle className="h-3 w-3" />;
       case 'unrecognized': return <HelpCircle className="h-3 w-3" />;
       default: return null;
     }
@@ -82,6 +86,7 @@ const LiveFaceOverlay: React.FC<LiveFaceOverlayProps> = ({
               <div className={`flex items-center gap-2 px-3 py-2 rounded-xl backdrop-blur-md border-2 shadow-lg ${
                 face.status === 'present' ? 'bg-green-500/20 border-green-500/50' :
                 face.status === 'late' ? 'bg-yellow-500/20 border-yellow-500/50' :
+                face.status === 'review' ? 'bg-blue-500/20 border-blue-500/50' :
                 'bg-red-500/20 border-red-500/50'
               }`}>
                 {/* Profile Photo */}
@@ -89,6 +94,7 @@ const LiveFaceOverlay: React.FC<LiveFaceOverlayProps> = ({
                   <Avatar className={`h-10 w-10 ring-2 ring-offset-1 ring-offset-background ${
                     face.status === 'present' ? 'ring-green-400' :
                     face.status === 'late' ? 'ring-yellow-400' :
+                    face.status === 'review' ? 'ring-blue-400' :
                     'ring-red-400'
                   }`}>
                     {face.imageUrl ? (
@@ -123,15 +129,22 @@ const LiveFaceOverlay: React.FC<LiveFaceOverlayProps> = ({
                       className={`text-[10px] px-1.5 py-0 h-4 ${
                         face.status === 'present' ? 'bg-green-500/30 text-green-200' :
                         face.status === 'late' ? 'bg-yellow-500/30 text-yellow-200' :
+                        face.status === 'review' ? 'bg-blue-500/30 text-blue-200' :
                         'bg-red-500/30 text-red-200'
                       }`}
                     >
                       {face.status === 'present' ? 'Present' : 
-                       face.status === 'late' ? 'Late' : 'Unknown'}
+                       face.status === 'late' ? 'Late' :
+                       face.status === 'review' ? 'Review' : 'Unknown'}
                     </Badge>
                     {face.confidence && face.status !== 'unrecognized' && (
                       <span className="text-[10px] text-slate-300">
                         {Math.round(face.confidence)}%
+                      </span>
+                    )}
+                    {face.status === 'review' && typeof face.strictScore === 'number' && (
+                      <span className="text-[10px] text-blue-200">
+                        3D {Math.round(face.strictScore * 100)}%
                       </span>
                     )}
                   </div>
