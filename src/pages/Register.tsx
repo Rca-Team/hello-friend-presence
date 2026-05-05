@@ -116,12 +116,12 @@ const Register = () => {
     averaged: Float32Array,
     primaryImage: string,
     rawDescriptors: Float32Array[],
-    rawImages: string[]
+    rawImages?: string[]
   ) => {
     setFaceDescriptor(averaged);
     setFaceImage(primaryImage);
     setAllDescriptors(rawDescriptors);
-    setAllFaceImages(rawImages);
+    setAllFaceImages(rawImages ?? []);
     setFaceCaptured(true);
     toast({ title: "3D Scan Complete! 🎉", description: `${rawDescriptors.length} angle samples captured for maximum accuracy.` });
   };
