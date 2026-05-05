@@ -63,6 +63,14 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
 
       if (error) throw error;
 
+      const employeeToUserId = new Map<string, string>();
+      (data || []).forEach((record: any) => {
+        const deviceInfo = record.device_info as any;
+        const metadata = deviceInfo?.metadata;
+        const empKey = (metadata?.employee_id || metadata?.roll_number || deviceInfo?.employee_id || '').toString().trim();
+        if (record.user_id && empKey) employeeToUserId.set(empKey, record.user_id);
+      });
+
       const uniqueStudents = new Map<string, StudentData>();
       
       data?.forEach(record => {
@@ -70,7 +78,9 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
         const metadata = deviceInfo?.metadata;
         
         if (metadata?.name && metadata.name !== 'Unknown') {
-          const userId = record.user_id || record.id;
+          const empKey = (metadata?.employee_id || metadata?.roll_number || deviceInfo?.employee_id || '').toString().trim();
+          const canonicalUserId = record.user_id || (empKey ? employeeToUserId.get(empKey) : null);
+          const userId = canonicalUserId || empKey || record.id;
           if (!uniqueStudents.has(userId)) {
             const imageUrl = record.image_url || metadata.firebase_image_url;
             let fullImageUrl = '';
