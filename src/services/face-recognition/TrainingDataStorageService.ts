@@ -20,6 +20,16 @@ interface AttendanceTrainingUploadInput {
   category?: string;
 }
 
+interface FaceModelUploadInput {
+  studentId: string;
+  employeeId?: string;
+  category?: string;
+  captureMode: 'auto-10' | 'scan-3d';
+  averagedDescriptor: Float32Array;
+  descriptors: Float32Array[];
+  sampleImages?: string[];
+}
+
 const sanitizeSegment = (value: string) =>
   value
     .toLowerCase()
@@ -103,6 +113,54 @@ export const uploadAttendanceTrainingImage = async (
 
   if (error) {
     console.warn('Attendance training upload failed:', error.message);
+    return null;
+  }
+
+  return path;
+};
+
+export const uploadRegistrationFaceModel = async (
+  input: FaceModelUploadInput,
+): Promise<string | null> => {
+  const uploaderId = await getUploaderId();
+  if (!uploaderId) return null;
+
+  const { className, sectionName } = parseClassSection(input.category);
+  const studentKey = sanitizeSegment(input.employeeId || input.studentId);
+  const timestamp = Date.now();
+  const path = `${uploaderId}/class-${className}/section-${sectionName}/student-${studentKey}/models/${timestamp}-face-model.json`;
+
+  const descriptorCloud = input.descriptors.map((d) => Array.from(d));
+  const pointCloud3D = input.descriptors.map((d, idx) => ({
+    id: idx + 1,
+    x: Number(d[0]?.toFixed(6) || 0),
+    y: Number(d[1]?.toFixed(6) || 0),
+    z: Number(d[2]?.toFixed(6) || 0),
+  }));
+
+  const payload = {
+    version: 'face-model-v1',
+    created_at: new Date().toISOString(),
+    student_id: input.studentId,
+    employee_id: input.employeeId || null,
+    category: input.category || null,
+    capture_mode: input.captureMode,
+    sample_count: input.descriptors.length,
+    descriptor_dimensions: input.averagedDescriptor.length,
+    averaged_descriptor: Array.from(input.averagedDescriptor),
+    descriptor_cloud: descriptorCloud,
+    point_cloud_3d_equivalent: pointCloud3D,
+    sample_images: input.sampleImages || [],
+  };
+
+  const jsonBlob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+
+  const { error } = await supabase.storage
+    .from('student-registration-faces')
+    .upload(path, jsonBlob, { contentType: 'application/json', upsert: false, cacheControl: '3600' });
+
+  if (error) {
+    console.warn('Registration face model upload failed:', error.message);
     return null;
   }
 
