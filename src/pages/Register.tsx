@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/select';
 import { registerFace } from '@/services/FaceRecognitionService';
 import { storeFaceSample } from '@/services/face-recognition/ProgressiveTrainingService';
+import { uploadRegistrationFaceModel } from '@/services/face-recognition/TrainingDataStorageService';
 import { loadRegistrationModels } from '@/services/face-recognition/OptimizedRegistrationService';
 import { v4 as uuidv4 } from 'uuid';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -146,6 +147,16 @@ const Register = () => {
     setIsSubmitting(true);
     try {
       const userId = uuidv4();
+      const faceModelPath = await uploadRegistrationFaceModel({
+        studentId: userId,
+        employeeId: validData.employeeId,
+        category: validData.department,
+        captureMode: captureMode === 'auto' ? 'auto-10' : 'scan-3d',
+        averagedDescriptor: faceDescriptor,
+        descriptors: allDescriptors,
+        sampleImages: allFaceImages,
+      });
+
       const response = await fetch(faceImage);
       const imageBlob = await response.blob();
       const registrationData = await registerFace(
@@ -168,6 +179,7 @@ const Register = () => {
         {
           sample_count: allDescriptors.length,
           capture_mode: captureMode === 'auto' ? 'auto-10' : 'scan-3d',
+          storage_model_path: faceModelPath || undefined,
         }
       );
       if (registrationData) {
