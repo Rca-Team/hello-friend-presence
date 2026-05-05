@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Loader2, Search, Download, Eye, ShieldAlert } from 'lucide-react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
@@ -54,6 +54,30 @@ type RegistrationRecord = {
 type PointCloudPoint = { id: number; x: number; y: number; z: number };
 
 const PointCloud3DViewer = ({ points }: { points: PointCloudPoint[] }) => {
+  const themeColors = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return {
+        background: '#0b1020',
+        point: '#22d3ee',
+        gridMajor: '#334155',
+        gridMinor: '#1e293b',
+      };
+    }
+
+    const styles = getComputedStyle(document.documentElement);
+    const colorFromToken = (token: string, fallback: string) => {
+      const value = styles.getPropertyValue(token).trim();
+      return value ? `hsl(${value})` : fallback;
+    };
+
+    return {
+      background: colorFromToken('--background', '#0b1020'),
+      point: colorFromToken('--primary', '#22d3ee'),
+      gridMajor: colorFromToken('--border', '#334155'),
+      gridMinor: colorFromToken('--accent', '#1e293b'),
+    };
+  }, []);
+
   const geometry = useMemo(() => {
     const validPoints = points.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z));
     if (validPoints.length === 0) return new THREE.BufferGeometry();
@@ -86,16 +110,20 @@ const PointCloud3DViewer = ({ points }: { points: PointCloudPoint[] }) => {
     return bufferGeometry;
   }, [points]);
 
+  useEffect(() => {
+    return () => geometry.dispose();
+  }, [geometry]);
+
   return (
     <Canvas camera={{ position: [2.2, 2.2, 2.2], fov: 55 }}>
-      <color attach="background" args={['#0b1020']} />
+      <color attach="background" args={[themeColors.background]} />
       <ambientLight intensity={0.65} />
       <pointLight position={[3, 4, 5]} intensity={0.9} />
-      <gridHelper args={[8, 8, '#334155', '#1e293b']} />
+      <gridHelper args={[8, 8, themeColors.gridMajor, themeColors.gridMinor]} />
       <axesHelper args={[2]} />
       <points>
         <primitive object={geometry} attach="geometry" />
-        <pointsMaterial size={0.08} color="#22d3ee" sizeAttenuation />
+        <pointsMaterial size={0.08} color={themeColors.point} sizeAttenuation />
       </points>
       <OrbitControls makeDefault enablePan enableZoom enableRotate />
     </Canvas>
