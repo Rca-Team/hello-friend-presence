@@ -90,14 +90,18 @@ const FaceModelValidator = () => {
         .from('attendance_records')
         .select('id, created_at, student_id, device_info')
         .eq('status', 'registered')
-        .or(`student_id.eq.${lookupId},device_info->metadata->>employee_id.eq.${lookupId}`)
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(200);
 
       if (error) throw error;
 
       const records = (data || []) as RegistrationRecord[];
-      const matched = records.find((record) => record.device_info?.metadata?.face_model?.storage_model_path);
+      const matched = records.find((record) => {
+        const employeeId = record.device_info?.metadata?.employee_id;
+        const currentStudentId = record.student_id;
+        const hasPath = !!record.device_info?.metadata?.face_model?.storage_model_path;
+        return hasPath && (employeeId === lookupId || currentStudentId === lookupId);
+      });
       const modelPath = matched?.device_info?.metadata?.face_model?.storage_model_path;
 
       if (!modelPath) {
@@ -241,7 +245,7 @@ const FaceModelValidator = () => {
                         <XAxis type="number" dataKey="x" name="x" />
                         <YAxis type="number" dataKey="y" name="y" />
                         <RechartsTooltip formatter={(value: number, name: string) => [Number(value).toFixed(6), name]} />
-                        <Scatter name="descriptor_cloud" data={descriptorScatter} fill="hsl(var(--primary))" />
+                        <Scatter name="descriptor_cloud" data={descriptorScatter} fill="var(--primary)" />
                       </ScatterChart>
                     </ResponsiveContainer>
                   </CardContent>
@@ -259,7 +263,7 @@ const FaceModelValidator = () => {
                         <XAxis type="number" dataKey="x" name="x" />
                         <YAxis type="number" dataKey="y" name="y" />
                         <RechartsTooltip formatter={(value: number, name: string) => [Number(value).toFixed(6), name]} />
-                        <Scatter name="point_cloud_3d_equivalent" data={pointCloudScatter} fill="hsl(var(--accent))" />
+                        <Scatter name="point_cloud_3d_equivalent" data={pointCloudScatter} fill="var(--accent)" />
                       </ScatterChart>
                     </ResponsiveContainer>
                   </CardContent>
