@@ -20,6 +20,7 @@ import GateMode from './pages/GateMode';
 import ParentPortal from './pages/ParentPortal';
 import Unsubscribe from './pages/Unsubscribe';
 import DataBackup from './pages/DataBackup';
+import FaceModelValidator from './pages/FaceModelValidator';
 
 import SplashAnimation from "./components/SplashAnimation";
 import { AttendanceProvider } from './contexts/AttendanceContext';
@@ -100,6 +101,11 @@ function AnimatedRoutes() {
         <Route path="/data" element={
           <ProtectedRoute requireRoles={["admin"]}>
             <DataBackup />
+          </ProtectedRoute>
+        } />
+        <Route path="/__admin/face-model-validator" element={
+          <ProtectedRoute requireRoles={["admin"]}>
+            <FaceModelValidator />
           </ProtectedRoute>
         } />
         <Route path="*" element={<NotFound />} />
