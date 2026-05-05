@@ -53,14 +53,24 @@ const StudentDetailsTable: React.FC = () => {
         .order('timestamp', { ascending: false });
       if (error) throw error;
 
+      const employeeToUserId = new Map<string, string>();
+      (data || []).forEach((r: any) => {
+        const deviceInfo = r.device_info || {};
+        const meta = deviceInfo?.metadata || {};
+        const empKey = (meta?.employee_id || meta?.roll_number || deviceInfo?.employee_id || '').toString().trim();
+        if (r.user_id && empKey) employeeToUserId.set(empKey, r.user_id);
+      });
+
       const map = new Map<string, StudentRow>();
       (data || []).forEach((r: any) => {
         const deviceInfo = r.device_info || {};
         const meta = deviceInfo?.metadata || {};
         const name = meta?.name || deviceInfo?.name || '';
         if (!name || name === 'Unknown' || name === 'User') return;
-        // Stable identity: user_id first (most reliable), then employee/roll, then record id
-        const key = (r.user_id || meta?.employee_id || meta?.roll_number || deviceInfo?.employee_id || r.id) as string;
+        const empKey = (meta?.employee_id || meta?.roll_number || deviceInfo?.employee_id || '').toString().trim();
+        const canonicalUserId = r.user_id || (empKey ? employeeToUserId.get(empKey) : null);
+        // Canonical identity: resolved user_id first, then employee/roll, then record id
+        const key = (canonicalUserId || empKey || r.id) as string;
         if (map.has(key)) return;
 
         let avatar = '';
@@ -75,7 +85,7 @@ const StudentDetailsTable: React.FC = () => {
 
         map.set(key, {
           id: key,
-          user_id: r.user_id || key,
+          user_id: canonicalUserId || key,
           name,
           employee_id: meta.employee_id || deviceInfo.employee_id || '—',
           roll_number: meta.roll_number || meta.employee_id || deviceInfo.employee_id || '—',
