@@ -33,7 +33,7 @@ const PilotModeSettings: React.FC = () => {
         .from('attendance_settings')
         .select('key,value')
         .in('key', KEYS as unknown as string[]);
-      const map = new Map((data || []).map((r: any) => [r.key, r.value]));
+      const map = new Map<string, string>((data || []).map((r: any) => [r.key as string, (r.value as string) ?? '']));
       setEnabled((map.get('pilot_enabled') || 'false') === 'true');
       setKlass(map.get('pilot_class') || '');
       setSection(map.get('pilot_section') || '');
