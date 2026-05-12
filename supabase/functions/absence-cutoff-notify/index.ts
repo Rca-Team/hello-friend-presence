@@ -34,6 +34,16 @@ serve(async (req) => {
     // Get cutoff time
     const { data: cutoffData } = await supabase.from('attendance_settings').select('value').eq('key', 'cutoff_time').single();
     const cutoffTime = cutoffData?.value || '09:00';
+
+    // Pilot mode: restrict to a single class+section if enabled
+    const { data: pilotRows } = await supabase
+      .from('attendance_settings')
+      .select('key,value')
+      .in('key', ['pilot_enabled', 'pilot_class', 'pilot_section']);
+    const pilotMap = new Map<string, string>((pilotRows || []).map((r: any) => [r.key, r.value ?? '']));
+    const pilotEnabled = (pilotMap.get('pilot_enabled') || 'false') === 'true';
+    const pilotClass = pilotMap.get('pilot_class') || '';
+    const pilotSection = pilotMap.get('pilot_section') || '';
     const [cH, cM] = cutoffTime.split(':').map(Number);
     const cutoffDisplay = `${(cH % 12) || 12}:${String(cM).padStart(2, '0')} ${cH >= 12 ? 'PM' : 'AM'}`;
     const now = new Date();
@@ -46,12 +56,17 @@ serve(async (req) => {
       });
     }
 
-    // Get all students with parent emails
-    const { data: profiles, error: profilesError } = await supabase
+    // Get all students with parent emails (filtered by pilot class+section when enabled)
+    let profilesQuery = supabase
       .from('profiles')
-      .select('user_id, display_name, parent_email, parent_name')
+      .select('user_id, display_name, parent_email, parent_name, class, section')
       .not('parent_email', 'is', null)
       .not('user_id', 'is', null);
+    if (pilotEnabled && pilotClass && pilotSection) {
+      profilesQuery = profilesQuery.eq('class', pilotClass).eq('section', pilotSection);
+      console.log(`[pilot] Restricting absence notifications to class=${pilotClass} section=${pilotSection}`);
+    }
+    const { data: profiles, error: profilesError } = await profilesQuery;
 
     if (profilesError) {
       throw new Error(`Failed to load parent profiles: ${profilesError.message}`);
