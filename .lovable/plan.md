@@ -1,72 +1,114 @@
-# Bulk PR: Onboarding tools + scan UX + bug fixes
+## 1. System Analysis (what already exists)
 
-## What you'll get
+**Auth & Roles**
+- Supabase auth with `user_roles` table (admin / principal / teacher / user) + `has_role()` security-definer function
+- Protected routes via `ProtectedRoute` wrapper
+- Parent portal (public lookup), parent email/phone on profiles
 
-### 1. CSV student onboarding (Admin )
+**Identity & Face Pipeline**
+- `face-api.js` (TinyFaceDetector, SSD MobileNetV1, FaceLandmark68, FaceRecognition) loaded from `/public/models`
+- Registration paths: `Register.tsx`, `MultiAngleCapture`, `AutoCapture10`, `Scan3DCapture`, `ClassPhotoRegistration`, `BulkImageRegistration`, `PDFBulkRegistration`, ID-card OCR extractors
+- Storage: `face_descriptors` table (jsonb descriptor + image_url + quality_score) and storage buckets `student-registration-faces`, `attendance-training-faces`, public `face-images`
+- Progressive training service samples per user; 3D-equivalent point cloud + descriptor cloud artifacts
+- Recognition: `RecognitionService` (single), `MultipleFaceService` (classroom), `TurboRecognitionService` (GPU + worker pool + IndexedDB k-d tree cache), strict 99% fused 3D matcher with manual-review fallback
 
-- New "Upload CSV" button on the Admin  panel.
-- Accepts columns: `roll_number, name, class, section, parent_name, parent_phone, parent_email`.
-- Creates an auth user (random password, email auto-confirmed) per row, fills `profiles`, assigns `user` role.
-- Skips rows with duplicate roll numbers, shows per-row success/error report.
-- A "Sample CSV" download button so school staff have a template.
-- Face capture is **not** done at upload — students appear in the directory and can be face-registered later from a "Capture Face" button next to each row.
+**Attendance Capture Surfaces**
+- `Attendance.tsx` with `FuturisticFaceScanner`, `MultipleFaceAttendanceCapture`, `MobileAttendanceCapture`, QR fallback (`QRCodeScanner`)
+- `GateMode` (entry/exit with `gate_sessions` + `gate_entries`), late-entry form, stranger alert
+- Attendance cutoff time → present/late logic, `attendance_records` table
 
-### 2. Animated "Capture Face" flow on the Students table
+**Admin / Teacher Tooling**
+- `Admin.tsx` aggregates: `TeacherDashboard`, `PrincipalDashboard`, `AttendanceCalendar`, `StudentDetailsTable`, `ClassSectionReport`, `AttendanceExport`, `AttendanceReportGenerator`, `ClassTeacherManager`, `TeacherPermissionsManager`, `TimetableManager`, `StudentCSVImporter`, `BulkImageRegistration`, `StudentFaceSamplesManager`, `FaceModelUpgradeSettings`
 
-- New camera icon on every student row → opens the existing AutoCapture10 (10-photo) flow pre-bound to that student's `user_id`.
-- Adds a glassy modal with framer-motion ring, scan-line, and success burst (matches the iOS look already in the project).
-- make it redirect to register page's face capture 
+**Notifications**
+- Push (service worker), realtime listener, transactional emails (status to parent, absent-cutoff), SMS, WhatsApp connectors
+- Edge functions: `auto-attendance-notifications`, `auto-parent-notification`, `absence-cutoff-notify`, `absence-tracker`, `send-transactional-email`, `process-email-queue`, `stranger-alert`
 
-### 3. Scan confirmation screen (before saving attendance)
+**Extras (likely deferred for pilot)**
+- AI insights, predictions, gamification, wellness, emotion analytics, zone tracker, bus tracker, visitor management, panic button, lockdown
 
-- After every successful match (Attendance, Mobile capture, Multi-face), a confirmation card appears for ~4s with:
-  - Cropped face thumbnail (drawn from the live frame)
-  - Matched student name + roll number
-  - Confidence % (large, color-coded)
-  - "Confirm" / "Not me — retake" buttons + auto-confirm countdown
-- Only on Confirm does the attendance record + notification fire(all).
-- Configurable in settings (default ON, can be disabled for kiosk-style speed).
+**Algorithms in use**
+- SSD MobileNetV1 detection (minConfidence 0.4) + 128-d FaceNet descriptor
+- Cosine/Euclidean matching + k-d tree (IndexedDB cache) + parallel web-worker pool
+- Strict fused 3D score = 0.7·descriptor-cloud similarity + 0.3·point-cloud distance, threshold 0.99 → auto, else manual review
+- Cutoff-time rule → present/late/absent classification
 
-### 4. WhatsApp "Notify now" button
+## 2. Pilot Plan — One Class, Real-Time
 
-- New button on `RecognizedFaceAlert` and the Admin notification log row → calls the existing `send-whatsapp` edge function with that student's `parent_phone`.
-- Loading + toast feedback, disables for 10s after click to prevent spam.
-- The auto-flow stays one-message-per-day; this button is a manual override for retries.  
+Goal: deploy in **one class (e.g. Class 8 - Section A, ~30-40 students)** for 4 weeks, validate recognition accuracy and parent-notification loop, then expand.
 
-- with email send  automatically  send  sms after attendance  mark
+### Week 0 — Setup (2-3 days)
+1. **Class scoping**
+   - Create class+section in `class_teachers`, assign one teacher account
+   - Use `TeacherPermissionsManager` to restrict teacher to that class only
+   - Seed period timings via `TimetableManager`
+2. **Hardware**
+   - 1 classroom tablet/laptop (front camera ≥720p, Chrome) mounted at door
+   - 1 backup phone (PWA install) for teacher
+   - Stable Wi-Fi; UPS for the tablet
+3. **Cutoff time** configured in `AttendanceCutoffSetting` (e.g. 08:30)
 
-### 5. Gate-mode detection box
+### Week 1 — Enrollment
+1. Bulk import roster via `StudentCSVImporter` (name, roll, parent email/phone)
+2. Face enrollment per student using `MultiAngleCapture` + `Scan3DCapture` (≥10 samples, multiple angles/lighting)
+3. Validate each student through `/​__admin/face-model-validator` (descriptor cloud + 3D point cloud sanity)
+4. Print/share student ID cards (`StudentIDCardGenerator`) as QR fallback
+5. Parent onboarding: send welcome email + parent-portal link
 
-- Admin draggable/resizable rectangle overlay in `GateModeScanner` (saved per-gate to `school_gates.detection_box` as JSON).
-- Only faces whose bounding box center is inside the rectangle trigger recognition — anything else is ignored. Box drawn as a glowing cyan border with "Detection Zone" label.
-- Removes any zoom transition: I'll audit `GateModeScanner` + `GateEntryFeedback` for `scale()` / framer-motion `scale` on detection and lock to `scale: 1`.
+### Week 2 — Shadow Mode (no parent alerts)
+1. Run `MultipleFaceAttendanceCapture` at start of first period each morning
+2. Teacher reviews **manual-confirmation queue** for sub-99% matches
+3. Disable parent notifications; collect:
+   - True positives / false positives / misses per day
+   - Average confidence, fused 3D score distribution
+   - Latency per scan (target <2s/face on device)
+4. Daily export via `AttendanceExport` for offline audit against paper register
+5. Tune: minimum face size, cutoff time, lighting placement, threshold (only if data justifies)
 
-### 6. Bug fixes
+### Week 3 — Live with Notifications
+1. Enable `auto-attendance-notifications` + `absence-cutoff-notify` for the single class only (filter by class/section in scheduler)
+2. Parent channels: email primary, WhatsApp/SMS optional per parent preference
+3. Late-entry workflow via `LateEntryForm` (gate mode) for after-cutoff arrivals
+4. Stranger alert ON; teacher confirms before escalation
 
-**A. "Parent emails go to [gauravraj10226@gmail.com](mailto:gauravraj10226@gmail.com)"**
-The only hardcoded reference is the Contact page (intentional). Real cause: when you registered, your profile's `parent_email` was set to that address. I'll:
+### Week 4 — Full Loop
+1. Add Gate Mode at classroom door for exit tracking (optional)
+2. Weekly report to parents via `AttendanceReportGenerator`
+3. Principal dashboard reviewed weekly with class teacher
+4. Decision gate: scale to next class only if
+   - Recognition accuracy ≥98% over 5 consecutive days
+   - <1% false-positive rate
+   - Parent-notification delivery ≥95%
+   - Zero unresolved security findings
 
-- Audit the Register page and CSV importer to never default `parent_email` to a global value.
-- Make `auto-parent-notification` log the actual `parent_email` used in `notification_log.recipient_phone` so you can verify per-send in the Admin → Notification Log.
-- If you want, I'll also clear stale `parent_email` rows now via a one-shot data fix.
+### Daily Operating Procedure (teacher)
+1. Open `/attendance` → start class session (filter to own class)
+2. Scan students at door for 10 min before cutoff
+3. Resolve manual-review queue
+4. Mark any unscanned as absent at cutoff (auto by `absence-tracker`)
+5. End-of-day: glance at `TeacherDashboard` summary
 
-**B. QR scanner / AI scanner / Gate mode ignore cutoff**
-`GateMode` already reads `attendance_settings.cutoff_time` but `QRCodeScanner.tsx` and the AI scanner path in `Attendance.tsx` use a separate or stale value. Fix: centralize via `getAttendanceCutoffTime()` from `AttendanceSettingsService` and apply the same `late` logic everywhere (status = `late` if `now >= cutoff`).
+## 3. Features Deferred Until After Pilot
+Bus tracking, zone tracker, visitor management, panic button, emergency lockdown, gamification, wellness, emotion analytics, AI predictions — keep code present but hidden from teacher nav for the pilot class to reduce surface area.
 
-**C. Gate mode auto-zoom on recognition**
-Will remove the `scale` animation on `GateEntryFeedback` and any CSS transform on the video element after match.
+## 4. Risks & Mitigations
+- **Lighting / camera angle** → fixed mount + ring light; re-enroll low-quality samples flagged by `FaceSamplesDiagnosticsPanel`
+- **Twins / siblings** → keep manual-review threshold strict; teacher confirms
+- **Privacy / consent** → printed consent form for parents before Week 1; storage buckets remain private; only `face-images` bucket is public (audit usage)
+- **Network outage** → IndexedDB descriptor cache + queued attendance writes (already in turbo pipeline); QR fallback as backup
+- **Wrong-class drift** → teacher account scoped via `TeacherPermissionsManager`; RLS already enforces owner/admin
 
-## Where photos are stored (your question)
+## 5. Technical Changes Needed for Pilot (small)
+- Add a class/section filter to notification edge functions (currently global) so only pilot class triggers parent emails
+- Add a "Pilot mode" toggle in `attendance_settings` that limits auto-notifications to a configured class+section
+- Add a daily metrics view (accuracy %, false-positive count, avg fused score) to `TeacherDashboard` for the pilot class
+- Optional: log per-scan metrics to a new `recognition_metrics` table for post-pilot analysis
 
-Every face capture is uploaded to **Lovable Cloud Storage**, public bucket `face-images`. Each row in `attendance_records.image_url` is the public URL pointing to that file (e.g. `https://<project>.supabase.co/storage/v1/object/public/face-images/<userId>/<timestamp>.jpg`). The same URL is what's embedded in parent emails as the "photo proof". Face descriptors (the math vector used for matching, not the photo) live in `face_descriptors.descriptor` as JSONB.
+No new third-party services required — Lovable Cloud + existing edge functions cover the pilot.
 
-## Files I'll touch
-
-- New: `src/components/admin/StudentCSVImporter.tsx`, `src/components/admin/CaptureFaceDialog.tsx`, `src/components/attendance/ScanConfirmation.tsx`, `src/components/gate/DetectionBoxEditor.tsx`, `supabase/functions/bulk-create-students/index.ts`
-- Edited: `src/components/admin/StudentDetailsTable.tsx` (CSV button + capture column), `src/components/attendance/RecognizedFaceAlert.tsx` (WhatsApp button), `src/components/gate/GateModeScanner.tsx` (box gate + no zoom), `src/components/attendance/QRCodeScanner.tsx` + `src/pages/Attendance.tsx` (cutoff), `supabase/functions/auto-parent-notification/index.ts` (log recipient), and a migration to add `school_gates.detection_box` JSONB.
-
-## Notes
-
-- I'll keep all UI in the existing iOS-glass + framer-motion style (already in core memory).
-- WhatsApp delivery itself depends on Meta approving your phone-number/template; I can't fix delivery from code if Meta rejects messages. After the notify button is wired I'll show you exactly how to read `notification_log.gateway_response` for Meta errors.
-- This is one large PR (your choice). I'll ship in this order: bugs (A–C) → WhatsApp button → scan confirmation → CSV import → detection box.
+## 6. Success Metrics (end of Week 4)
+- ≥98% recognition accuracy
+- ≤2s average scan latency per student
+- ≥95% parent-notification delivery
+- ≥80% teacher satisfaction (single-question survey)
+- 0 P1 incidents (wrong attendance marked, wrong parent notified)
