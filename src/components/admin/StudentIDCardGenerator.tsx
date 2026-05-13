@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { getCategoryLabel } from '@/constants/schoolConfig';
+import kvLogo from '@/assets/kv-logo.png';
 import { 
   CreditCard, 
   Download, 
@@ -39,9 +40,11 @@ interface StudentIDCardGeneratorProps {
   students?: StudentData[];
 }
 
-const SCHOOL_NAME = 'Presences Smart School';
-const SCHOOL_TAGLINE = 'Excellence in Education';
-const SCHOOL_ADDRESS = 'Smart Campus, Education City';
+const SCHOOL_NAME = 'PM SHRI Kendriya Vidyalaya';
+const SCHOOL_SUBNAME = 'NFC Vigyan Vihar, Delhi';
+const SCHOOL_TAGLINE = 'तत् त्वम् पूषन् अपावृणु';
+const SCHOOL_ADDRESS = 'Vigyan Vihar, New Delhi – 110092 | Affiliated to CBSE';
+const SCHOOL_AFFILIATION = 'Under Kendriya Vidyalaya Sangathan, Min. of Education, Govt. of India';
 const ACADEMIC_YEAR = '2025–2026';
 
 const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ students: propStudents }) => {
@@ -152,22 +155,29 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
         <!-- Top Header Band -->
         <div style="
           background: linear-gradient(135deg, #1e3a5f 0%, #0d2137 100%);
-          padding: 14px 16px 12px;
-          text-align: center;
+          padding: 12px 14px 10px;
           position: relative;
         ">
           <div style="
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             background: repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 8px);
           "></div>
-          <div style="position: relative; z-index: 1;">
-            <div style="font-size: 16px; font-weight: 800; color: #ffffff; letter-spacing: 1px; text-transform: uppercase;">
-              ${SCHOOL_NAME}
+          <div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 10px;">
+            <img src="${kvLogo}" crossorigin="anonymous" style="width: 52px; height: 52px; flex-shrink: 0; background: #ffffff; border-radius: 50%; padding: 2px; object-fit: contain;" />
+            <div style="flex: 1; text-align: left; min-width: 0;">
+              <div style="font-size: 14px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px; line-height: 1.1;">
+                ${SCHOOL_NAME}
+              </div>
+              <div style="font-size: 11px; font-weight: 700; color: #fbbf24; line-height: 1.2; margin-top: 1px;">
+                ${SCHOOL_SUBNAME}
+              </div>
+              <div style="font-size: 9px; color: #93c5fd; margin-top: 2px; font-style: italic;">
+                ${SCHOOL_TAGLINE}
+              </div>
             </div>
-            <div style="font-size: 10px; color: #93c5fd; margin-top: 2px; letter-spacing: 1.5px; text-transform: uppercase;">
-              ${SCHOOL_TAGLINE}
-            </div>
-            <div style="font-size: 9px; color: #94a3b8; margin-top: 3px;">${SCHOOL_ADDRESS}</div>
+          </div>
+          <div style="position: relative; z-index: 1; font-size: 8px; color: #cbd5e1; margin-top: 6px; text-align: center; line-height: 1.3;">
+            ${SCHOOL_ADDRESS}<br/>${SCHOOL_AFFILIATION}
           </div>
         </div>
 
@@ -238,6 +248,14 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
                 <td style="padding: 5px 0; font-size: 11px; color: #64748b; vertical-align: top;">Address</td>
                 <td style="padding: 5px 0; font-size: 11px; font-weight: 600; color: #1e3a5f; line-height: 1.4;">: ${student.address}</td>
               </tr>` : ''}
+              <tr>
+                <td style="padding: 5px 0; font-size: 11px; color: #64748b;">Issued On</td>
+                <td style="padding: 5px 0; font-size: 12px; font-weight: 600; color: #1e3a5f;">: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+              </tr>
+              <tr>
+                <td style="padding: 5px 0; font-size: 11px; color: #64748b;">Valid Till</td>
+                <td style="padding: 5px 0; font-size: 12px; font-weight: 700; color: #dc2626;">: 31 Mar ${ACADEMIC_YEAR.split('–')[1]}</td>
+              </tr>
             </table>
           </div>
         </div>
@@ -254,23 +272,28 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
           ">
             <img src="data:image/svg+xml;base64,${qrBase64}" style="width: 100%; height: 100%;" />
           </div>
-          <div style="flex: 1; text-align: right; padding-left: 12px;">
-            <div style="font-size: 9px; color: #94a3b8; margin-bottom: 4px;">Scan for attendance</div>
-            <div style="font-size: 9px; color: #94a3b8; line-height: 1.4;">
-              This card is the property of the school.<br/>
-              If found, please return to the school office.
+          <div style="flex: 1; padding-left: 12px;">
+            <div style="font-size: 9px; color: #94a3b8; margin-bottom: 3px;">Scan for verification</div>
+            <div style="text-align: center; padding-top: 14px; border-top: 1px dashed #cbd5e1; margin-top: 6px;">
+              <div style="font-size: 9px; font-weight: 700; color: #1e3a5f;">Principal</div>
+              <div style="font-size: 8px; color: #94a3b8;">Signature & Seal</div>
             </div>
           </div>
+        </div>
+
+        <!-- Emergency note -->
+        <div style="padding: 4px 16px 0; font-size: 8px; color: #64748b; text-align: center; line-height: 1.3;">
+          If found, please return to <strong>PM SHRI K.V. NFC Vigyan Vihar, Delhi</strong> · Tel: 011-22154398
         </div>
 
         <!-- Bottom Band -->
         <div style="
           margin-top: auto; position: absolute; bottom: 0; left: 0; right: 0;
           background: linear-gradient(135deg, #1e3a5f 0%, #0d2137 100%);
-          padding: 8px 16px; text-align: center;
-          font-size: 9px; color: #93c5fd; letter-spacing: 0.5px;
+          padding: 7px 16px; text-align: center;
+          font-size: 8px; color: #93c5fd; letter-spacing: 0.4px;
         ">
-          Powered by Presences AI • Smart Attendance System
+          Powered by RCA · Made by Gaurav Raj & Jatin Dhama
         </div>
       </div>
     `;
