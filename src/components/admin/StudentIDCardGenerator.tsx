@@ -159,7 +159,7 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
     else setSelectedIds(new Set(students.map(s => s.id)));
   };
 
-  const buildCardHTML = (student: StudentData, qrBase64: string) => {
+  const buildCardHTML = (student: StudentData, qrBase64: string, logoSrc: string) => {
     const classLabel = getCategoryLabel(student.category);
     
     return `
@@ -185,7 +185,7 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
             background: repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 8px);
           "></div>
           <div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 10px;">
-            <img src="${kvLogo}" crossorigin="anonymous" style="width: 52px; height: 52px; flex-shrink: 0; background: #ffffff; border-radius: 50%; padding: 2px; object-fit: contain;" />
+            <img src="${logoSrc}" style="width: 56px; height: 56px; flex-shrink: 0; background: #ffffff; border-radius: 50%; padding: 4px; object-fit: contain; border: 2px solid #ffffff;" />
             <div style="flex: 1; text-align: left; min-width: 0;">
               <div style="font-size: 14px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px; line-height: 1.1;">
                 ${SCHOOL_NAME}
