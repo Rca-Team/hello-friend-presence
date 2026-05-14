@@ -173,23 +173,24 @@ serve(async (req) => {
       }
 
       if (emailBody) {
+        const status = userAttendance?.status || 'absent';
         try {
-          const statusColor = userAttendance?.status === 'present' ? '#28a745' : userAttendance?.status === 'late' ? '#ffc107' : '#dc3545';
-          const statusText = userAttendance?.status === 'present' ? 'Present ✓' : userAttendance?.status === 'late' ? 'Late ⏰' : 'Absent ✗';
-          const statusBadge = userAttendance?.status === 'present' ? 'ON TIME' : userAttendance?.status === 'late' ? 'LATE ARRIVAL' : 'ABSENT';
-
-          // Email sending temporarily disabled - Resend integration pending
-          console.log('Would send email to:', profile.parent_email);
-          console.log('Subject:', emailSubject);
-          console.log('Status:', statusText);
-          
-          notificationResults.push({
-            student: studentName,
-            status: userAttendance?.status || 'absent',
-            emailSent: false,
-            error: 'Email service temporarily unavailable'
+          await fanOutNotification(supabaseClient, {
+            userId,
+            studentName,
+            parentName: profile.parent_name || 'Parent/Guardian',
+            parentEmail: profile.parent_email,
+            parentPhone: (profile as any).parent_phone || null,
+            class: profile.class || '',
+            section: profile.section || '',
+            status,
+            time: attendanceTime,
+            date: attendanceDate,
+            cutoff: cutoffTime,
+            subject: emailSubject,
+            body: emailBody,
           });
-
+          notificationResults.push({ student: studentName, status, sent: true });
         } catch (error) {
           console.error(`Failed to send email for ${studentName}:`, error);
           notificationResults.push({
