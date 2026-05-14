@@ -50,6 +50,25 @@ const SCHOOL_ADDRESS = 'Vigyan Vihar, New Delhi – 110092 | Affiliated to CBSE'
 const SCHOOL_AFFILIATION = 'Under Kendriya Vidyalaya Sangathan, Min. of Education, Govt. of India';
 const ACADEMIC_YEAR = '2025–2026';
 
+/** Preload the KVS logo as a base64 data URL so html2canvas embeds it cleanly. */
+let cachedLogoDataUrl: string | null = null;
+const loadLogoDataUrl = async (): Promise<string> => {
+  if (cachedLogoDataUrl) return cachedLogoDataUrl;
+  try {
+    const res = await fetch(kvLogo);
+    const blob = await res.blob();
+    cachedLogoDataUrl = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader();
+      r.onloadend = () => resolve(r.result as string);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+    return cachedLogoDataUrl!;
+  } catch {
+    return kvLogo;
+  }
+};
+
 const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ students: propStudents }) => {
   const { toast } = useToast();
   const [students, setStudents] = useState<StudentData[]>(propStudents || []);
