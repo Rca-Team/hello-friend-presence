@@ -353,10 +353,11 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
     document.body.removeChild(tempQRDiv);
 
     // Build card
+    const logoSrc = await loadLogoDataUrl();
     const container = document.createElement('div');
     container.style.position = 'absolute';
     container.style.left = '-9999px';
-    container.innerHTML = buildCardHTML(student, qrBase64);
+    container.innerHTML = buildCardHTML(student, qrBase64, logoSrc);
     document.body.appendChild(container);
 
     await new Promise(resolve => setTimeout(resolve, 200));
