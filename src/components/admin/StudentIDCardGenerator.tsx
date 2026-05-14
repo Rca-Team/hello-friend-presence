@@ -675,7 +675,7 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
                       background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.1) 0px, rgba(255,255,255,0.1) 1px, transparent 1px, transparent 8px)'
                     }} />
                     <div className="relative z-10 flex items-center gap-2.5">
-                      <img src={kvLogo} alt="KV Logo" loading="lazy" width={52} height={52} className="w-12 h-12 flex-shrink-0 bg-white rounded-full p-0.5 object-contain" />
+                      <img src={kvLogo} alt="Kendriya Vidyalaya Sangathan logo" loading="lazy" width={56} height={56} className="w-14 h-14 flex-shrink-0 bg-white rounded-full p-1 object-contain border-2 border-white shadow" />
                       <div className="flex-1 min-w-0 text-left">
                         <p className="text-white font-extrabold text-[13px] sm:text-sm leading-tight">{SCHOOL_NAME}</p>
                         <p className="text-amber-400 font-bold text-[11px] leading-tight">{SCHOOL_SUBNAME}</p>
