@@ -514,16 +514,42 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
                 </label>
               </div>
               
-              <Button
-                onClick={downloadSelectedCards}
-                disabled={selectedIds.size === 0 || isGenerating}
-              >
-                {isGenerating ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</>
-                ) : (
-                  <><FileDown className="w-4 h-4 mr-2" />Download Selected ({selectedIds.size})</>
-                )}
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={downloadSelectedCards}
+                  disabled={selectedIds.size === 0 || isGenerating}
+                  title="Download each selected card as a separate PNG"
+                >
+                  {isGenerating
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Working…</>
+                    : <><FileDown className="w-4 h-4 mr-2" />PNGs ({selectedIds.size})</>
+                  }
+                </Button>
+
+                <Button
+                  onClick={() => exportPDF(false)}
+                  disabled={isGenerating || students.length === 0}
+                  title="Download a print-ready A4 PDF with 9 cards per page at real ID-card size (54×85.6 mm)"
+                >
+                  {isGenerating
+                    ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Building PDF…</>
+                    : <><FileText className="w-4 h-4 mr-2" />
+                        PDF ({selectedIds.size > 0 ? selectedIds.size : students.length})
+                      </>
+                  }
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  onClick={() => exportPDF(true)}
+                  disabled={isGenerating || students.length === 0}
+                  title="Open print dialog with the PDF (9 cards per A4 at real size)"
+                >
+                  <Printer className="w-4 h-4 mr-2" />
+                  Print
+                </Button>
+              </div>
             </div>
 
             {/* Student Grid */}
