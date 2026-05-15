@@ -137,7 +137,7 @@ const StudentFaceSamplesManager: React.FC = () => {
         let source: FaceSample['source'];
         if (r.status === 'registered' || r.status === 'pending_approval') {
           source = 'record_registration';
-        } else if ((r.confidence_score ?? 0) >= 0.8 && (r.status === 'present' || r.status === 'late')) {
+        } else if ((r.confidence_score ?? 0) >= 0.6 && (r.status === 'present' || r.status === 'late')) {
           source = fromGate ? 'recognition_gate' : 'recognition_attendance';
         } else {
           return;
