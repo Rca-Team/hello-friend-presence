@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Helmet, HelmetProvider } from "react-helmet-async";
 import Index from "./pages/Index";
 import Register from "./pages/Register";
@@ -213,15 +213,7 @@ function AnimatedRoutes() {
 }
 
 function App() {
-  const [showSplash, setShowSplash] = useState(() => {
-    return sessionStorage.getItem("presence_splash_seen") !== "1";
-  });
-
-  useEffect(() => {
-    if (!showSplash) {
-      sessionStorage.setItem("presence_splash_seen", "1");
-    }
-  }, [showSplash]);
+  const [showSplash] = useState(false);
 
   return (
     <ThemeProvider defaultTheme="dark">
