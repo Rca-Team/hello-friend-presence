@@ -174,15 +174,6 @@ const AdminInbox: React.FC = () => {
         </div>
       </div>
 
-      <div className="relative">
-        <Input
-          placeholder="Quick search in currently filtered emails..."
-          value={recipientFilter}
-          onChange={(e) => setRecipientFilter(e.target.value)}
-          className="hidden"
-        />
-      </div>
-
       {filtered.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="py-12 text-center">
