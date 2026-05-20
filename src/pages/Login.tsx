@@ -21,14 +21,22 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const from = (location.state as { from?: string } | null)?.from || '/attendance';
+  const queryRedirect = new URLSearchParams(location.search).get('redirectTo');
+  const storedRedirect = sessionStorage.getItem('auth_redirect_to');
+  const from = queryRedirect || (location.state as { from?: string } | null)?.from || storedRedirect || '/attendance';
   
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) navigate(from, { replace: true });
+      if (session) {
+        sessionStorage.removeItem('auth_redirect_to');
+        navigate(from, { replace: true });
+      }
     });
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate(from, { replace: true });
+      if (session) {
+        sessionStorage.removeItem('auth_redirect_to');
+        navigate(from, { replace: true });
+      }
     });
     return () => subscription.unsubscribe();
   }, [navigate, from]);
@@ -50,11 +58,9 @@ const Login = () => {
 
   const handleGoogleSignIn = async () => {
     try {
+      sessionStorage.setItem('auth_redirect_to', from);
       const result = await lovable.auth.signInWithOAuth('google', {
-        redirect_uri: `${window.location.origin}/login`,
-        extraParams: {
-          next: from,
-        },
+        redirect_uri: `${window.location.origin}/login?redirectTo=${encodeURIComponent(from)}`,
       });
       if (result?.error) throw result.error;
     } catch (error: any) {
