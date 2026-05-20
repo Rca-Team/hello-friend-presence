@@ -17,6 +17,8 @@ import { usePhotoEnhancer } from '@/hooks/usePhotoEnhancer';
 import { AlertCircle, Sparkles, Users, Camera, Wand2 } from 'lucide-react';
 import * as faceapi from 'face-api.js';
 
+const SKIP_CONFIRMATION_CONFIDENCE_THRESHOLD = 0.5;
+
 const AttendanceCapture = () => {
   const { toast } = useToast();
   const webcamRef = useRef<HTMLVideoElement>(null);
@@ -413,6 +415,24 @@ const AttendanceCapture = () => {
           const imageUrl = imageDataUrl || capturedImage || '';
 
           if (displayStatus === 'present' || displayStatus === 'late') {
+            const confidence = single.confidence ?? 0;
+
+            if (confidence >= SKIP_CONFIRMATION_CONFIDENCE_THRESHOLD) {
+              setRecognizedAlert({
+                employee: single.employee,
+                status: displayStatus,
+                timestamp: new Date(),
+                imageUrl,
+              });
+
+              toast({
+                title: 'Attendance Confirmed',
+                description: `${single.employee.name} marked as ${displayStatus} (${Math.round(confidence * 100)}% match)`,
+              });
+
+              return;
+            }
+
             // Look up the just-inserted attendance record id (for undo)
             let recordId: string | undefined;
             try {
@@ -432,7 +452,7 @@ const AttendanceCapture = () => {
             setPendingConfirm({
               employee: single.employee,
               status: displayStatus,
-              confidence: single.confidence ?? 0,
+              confidence,
               imageUrl,
               attendanceRecordId: recordId,
             });
