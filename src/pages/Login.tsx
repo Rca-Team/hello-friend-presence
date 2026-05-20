@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,20 +16,22 @@ import { motion } from 'framer-motion';
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const from = (location.state as { from?: string } | null)?.from || '/attendance';
   
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) navigate('/attendance');
+      if (session) navigate(from, { replace: true });
     });
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate('/attendance');
+      if (session) navigate(from, { replace: true });
     });
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, [navigate, from]);
   
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -37,8 +39,8 @@ const Login = () => {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      toast({ title: "Welcome back!", description: "Signed in to Presence Smart School" });
-      navigate('/attendance');
+      toast({ title: "Welcome back!", description: "Signed in to Presences smart automation" });
+      navigate(from, { replace: true });
     } catch (error: any) {
       toast({ title: "Login failed", description: error.message || "Invalid email or password", variant: "destructive" });
     } finally {
@@ -49,7 +51,10 @@ const Login = () => {
   const handleGoogleSignIn = async () => {
     try {
       const result = await lovable.auth.signInWithOAuth('google', {
-        redirect_uri: window.location.origin,
+        redirect_uri: `${window.location.origin}/login`,
+        extraParams: {
+          next: from,
+        },
       });
       if (result?.error) throw result.error;
     } catch (error: any) {
