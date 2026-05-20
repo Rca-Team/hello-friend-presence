@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import NotificationPermissionGate from './NotificationPermissionGate';
 import { ShieldAlert } from 'lucide-react';
@@ -14,6 +14,7 @@ interface ProtectedRouteProps {
 
 export function ProtectedRoute({ children, requireAdmin = false, requireRoles }: ProtectedRouteProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [isAuthorized, setIsAuthorized] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -73,7 +74,11 @@ export function ProtectedRoute({ children, requireAdmin = false, requireRoles }:
         
         if (!user) {
           setIsAuthenticated(false);
-          navigate('/login');
+          navigate('/login', {
+            state: {
+              from: `${location.pathname}${location.search}${location.hash}`,
+            },
+          });
           return;
         }
 
@@ -90,7 +95,11 @@ export function ProtectedRoute({ children, requireAdmin = false, requireRoles }:
       } catch (error) {
         console.error('Auth check error:', error);
         setIsAuthenticated(false);
-        navigate('/login');
+        navigate('/login', {
+          state: {
+            from: `${location.pathname}${location.search}${location.hash}`,
+          },
+        });
       } finally {
         setLoading(false);
       }
@@ -101,12 +110,16 @@ export function ProtectedRoute({ children, requireAdmin = false, requireRoles }:
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT' || !session) {
-        navigate('/login');
+        navigate('/login', {
+          state: {
+            from: `${location.pathname}${location.search}${location.hash}`,
+          },
+        });
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, requireAdmin]);
+  }, [navigate, location.pathname, location.search, location.hash, requireAdmin, requireRoles]);
 
   if (loading) {
     return (
