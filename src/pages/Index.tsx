@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import rcaTeamLogo from '@/assets/rca-team-logo.jpg';
 import gauravPhoto from '@/assets/gaurav-photo.png';
 
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { motion } from 'framer-motion';
 import PageLayout from '@/components/layouts/PageLayout';
 import PageTransition from '@/components/PageTransition';
@@ -16,6 +17,13 @@ import {
 } from 'lucide-react';
 
 const Index = () => {
+  const [activeProfile, setActiveProfile] = useState<null | {
+    name: string;
+    role: string;
+    image?: string;
+    bio: string;
+  }>(null);
+
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: { opacity: 1, transition: { staggerChildren: 0.06 } }
@@ -101,6 +109,20 @@ const Index = () => {
     { value: "24/7", label: "Monitoring" }
   ];
 
+  const creatorMembers = [
+    {
+      name: 'Gaurav',
+      role: 'Team leader + Developer',
+      image: gauravPhoto,
+      bio: 'Leads product direction and development for Presences smart automation.',
+    },
+    {
+      name: 'Jatin',
+      role: 'Contributor',
+      bio: 'Supports feature execution, testing, and iteration across modules.',
+    },
+  ];
+
   return (
     <PageTransition>
       <PageLayout className="overflow-hidden has-bottom-nav md:pb-0">
@@ -170,17 +192,32 @@ const Index = () => {
                       <p className="text-xs text-muted-foreground">RCA Team</p>
                     </div>
                   </div>
-                  <div className="mt-3 flex items-center gap-3 rounded-xl border border-border/50 bg-background/40 p-2.5">
-                    <img
-                      src={gauravPhoto}
-                      alt="Gaurav"
-                      className="h-12 w-12 rounded-lg object-cover"
-                      loading="lazy"
-                    />
-                    <p className="text-xs sm:text-sm text-muted-foreground"><span className="font-semibold text-foreground">Gaurav</span> — Team leader + Developer</p>
-                  </div>
-                  <div className="mt-2 grid gap-1.5 text-xs sm:text-sm text-muted-foreground">
-                    <p><span className="font-semibold text-foreground">Jatin</span> — Contributor</p>
+                  <div className="mt-3 grid gap-2">
+                    {creatorMembers.map((member) => (
+                      <button
+                        key={member.name}
+                        type="button"
+                        onClick={() => setActiveProfile(member)}
+                        className="group flex w-full items-center gap-3 rounded-xl border border-border/50 bg-background/40 p-2.5 text-left transition-all hover:border-primary/40 hover:bg-background/60 hover:shadow-md"
+                      >
+                        {member.image ? (
+                          <img
+                            src={member.image}
+                            alt={member.name}
+                            className="h-12 w-12 rounded-lg object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
+                            {member.name.slice(0, 1)}
+                          </div>
+                        )}
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          <span className="font-semibold text-foreground">{member.name}</span> — {member.role}
+                        </p>
+                        <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
+                      </button>
+                    ))}
                   </div>
                 </motion.div>
 
@@ -368,6 +405,41 @@ const Index = () => {
             </div>
           </motion.div>
         </section>
+        <Dialog open={Boolean(activeProfile)} onOpenChange={(open) => !open && setActiveProfile(null)}>
+          <DialogContent className="max-w-md rounded-2xl border-border/70 bg-card/95 p-0 backdrop-blur-xl">
+            {activeProfile && (
+              <motion.div
+                initial={{ opacity: 0, y: 14, scale: 0.96 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ duration: 0.25, ease: 'easeOut' }}
+                className="p-5 sm:p-6"
+              >
+                <DialogHeader className="space-y-3 text-left">
+                  <div className="flex items-center gap-3">
+                    {activeProfile.image ? (
+                      <img
+                        src={activeProfile.image}
+                        alt={activeProfile.name}
+                        className="h-16 w-16 rounded-xl border border-border/60 object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 text-lg font-semibold text-primary">
+                        {activeProfile.name.slice(0, 1)}
+                      </div>
+                    )}
+                    <div>
+                      <DialogTitle className="text-xl">{activeProfile.name}</DialogTitle>
+                      <p className="text-sm text-muted-foreground">{activeProfile.role}</p>
+                    </div>
+                  </div>
+                  <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+                    {activeProfile.bio}
+                  </DialogDescription>
+                </DialogHeader>
+              </motion.div>
+            )}
+          </DialogContent>
+        </Dialog>
       </PageLayout>
     </PageTransition>
   );
