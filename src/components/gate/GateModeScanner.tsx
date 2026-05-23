@@ -55,7 +55,6 @@ const GateModeScanner = ({ onFaceDetected, isActive, onPendingCountChange, perio
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fpsCounterRef = useRef({ frames: 0, lastTime: Date.now() });
   const attendanceMarkedRef = useRef<Set<string>>(new Set());
-  const alreadyMarkedTodayRef = useRef<Set<string>>(new Set());
   const recognizedCooldownRef = useRef<Map<string, number>>(new Map());
   const periodMarkedRef = useRef<Set<string>>(new Set());
   const borderlineRetryRef = useRef<Map<string, number>>(new Map());
@@ -145,35 +144,6 @@ const GateModeScanner = ({ onFaceDetected, isActive, onPendingCountChange, perio
       }
     })();
   }, [getCurrentPeriodKey]);
-
-  // Load students already marked today (present/late) to avoid duplicate detections in gate mode
-  useEffect(() => {
-    (async () => {
-      try {
-        const start = new Date();
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(start);
-        end.setDate(end.getDate() + 1);
-
-        const { data } = await supabase
-          .from('attendance_records')
-          .select('user_id')
-          .in('status', ['present', 'late'])
-          .gte('timestamp', start.toISOString())
-          .lt('timestamp', end.toISOString());
-
-        if (data?.length) {
-          const alreadyMarked = new Set<string>();
-          data.forEach((row) => {
-            if (row.user_id) alreadyMarked.add(row.user_id);
-          });
-          alreadyMarkedTodayRef.current = alreadyMarked;
-        }
-      } catch (e) {
-        console.warn('Could not load today attendance marks', e);
-      }
-    })();
-  }, []);
 
   // Clear stale live matches
   useEffect(() => {
@@ -461,13 +431,12 @@ const GateModeScanner = ({ onFaceDetected, isActive, onPendingCountChange, perio
           const studentId = isRecognized && result?.employee ? result.employee.id : null;
           const confidence = rawConfidence;
 
-          // Silent skip when this student is already marked today or just recognized recently
+          // Silent skip for anti-spam cooldown window; period-level dedupe is handled separately.
           if (isRecognized && studentId) {
             const lastRecognizedAt = recognizedCooldownRef.current.get(studentId);
             if (
-              alreadyMarkedTodayRef.current.has(studentId) ||
               attendanceMarkedRef.current.has(studentId) ||
-              (lastRecognizedAt && now - lastRecognizedAt < REDETECTION_COOLDOWN_MS)
+              (lastRecognizedAt && now - lastRecognizedAt < DUPLICATE_COOLDOWN_MS)
             ) {
               continue;
             }
@@ -510,7 +479,6 @@ const GateModeScanner = ({ onFaceDetected, isActive, onPendingCountChange, perio
               borderlineRetryRef.current.delete(studentId);
               syncPendingCount();
             attendanceMarkedRef.current.add(studentId);
-            alreadyMarkedTodayRef.current.add(studentId);
               periodMarkedRef.current.add(`${studentId}:${currentPeriodKey}`);
             try {
               // Capture the video frame for the notification email
