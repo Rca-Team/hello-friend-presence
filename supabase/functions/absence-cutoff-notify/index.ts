@@ -19,16 +19,50 @@ serve(async (req) => {
       throw new Error('Missing backend environment configuration for absence notifications');
     }
 
-    // Verify caller is admin
+    const expectedSecret = Deno.env.get('CRON_SECRET') ?? '';
+    const cronSecret = req.headers.get('x-cron-secret') ?? '';
     const authHeader = req.headers.get('Authorization');
-    if (authHeader) {
+
+    if (!expectedSecret && !authHeader) {
+      return new Response(JSON.stringify({ error: 'Server is not securely configured for this endpoint.' }), {
+        status: 503,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const cronAuthorized = !!expectedSecret && cronSecret === expectedSecret;
+
+    if (!cronAuthorized) {
+      if (!authHeader) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
       const { data: { user }, error: authErr } = await authClient.auth.getUser();
-      if (authErr || !user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (authErr || !user) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
       const svc = createClient(supabaseUrl, serviceKey);
-      const { data: role } = await svc.from('user_roles').select('role').eq('user_id', user.id).in('role', ['admin', 'principal']).maybeSingle();
-      if (!role) return new Response(JSON.stringify({ error: 'Admin access required' }), { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      const { data: role } = await svc
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', user.id)
+        .in('role', ['admin', 'principal'])
+        .maybeSingle();
+
+      if (!role) {
+        return new Response(JSON.stringify({ error: 'Admin access required' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     const supabase = createClient(supabaseUrl, serviceKey);
