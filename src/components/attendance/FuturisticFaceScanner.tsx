@@ -353,7 +353,9 @@ const FuturisticFaceScanner: React.FC<FuturisticFaceScannerProps> = ({ onScanCom
             const strictMetrics = result.strictMetrics;
             const strictScore = strictMetrics?.fusedScore ?? (result.confidence ?? 0);
             const thresholdTarget = strictMetrics?.thresholdTarget ?? 0.5;
-            const autoMarkEligible = !!strictMetrics?.autoMarkEligible;
+            const autoMarkEligible =
+              strictScore >= thresholdTarget ||
+              !!strictMetrics?.autoMarkEligible;
             
             if (autoMarkEligible) {
               try {
