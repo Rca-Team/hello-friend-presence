@@ -544,6 +544,8 @@ const GateModeScanner = ({ onFaceDetected, isActive, onPendingCountChange, perio
                 syncPendingCount();
                 continue;
               }
+              borderlineRetryRef.current.delete(studentId);
+              syncPendingCount();
             }
 
             if (isRecognized && studentId && confidence < BORDERLINE_RETRY_CONFIDENCE) {
