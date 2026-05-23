@@ -63,6 +63,12 @@ const GateModeScanner = ({ onFaceDetected, isActive, onPendingCountChange }: Gat
   const faceLabelsRef = useRef<Map<string, { name: string; confidence: number; recognized: boolean }>>(new Map());
   const { isEnhancing: isAIEnhancing, autoEnhance } = usePhotoEnhancer();
 
+  const syncPendingCount = useCallback(() => {
+    if (!onPendingCountChange) return;
+    const pending = Array.from(borderlineRetryRef.current.values()).filter((count) => count === 1).length;
+    onPendingCountChange(pending);
+  }, [onPendingCountChange]);
+
   const getCurrentPeriodKey = useCallback(() => {
     const now = new Date();
     const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -501,6 +507,8 @@ const GateModeScanner = ({ onFaceDetected, isActive, onPendingCountChange }: Gat
               !attendanceMarkedRef.current.has(studentId) &&
               !periodMarkedRef.current.has(`${studentId}:${currentPeriodKey}`)
           ) {
+              borderlineRetryRef.current.delete(studentId);
+              syncPendingCount();
             attendanceMarkedRef.current.add(studentId);
             alreadyMarkedTodayRef.current.add(studentId);
               periodMarkedRef.current.add(`${studentId}:${currentPeriodKey}`);
@@ -565,14 +573,19 @@ const GateModeScanner = ({ onFaceDetected, isActive, onPendingCountChange }: Gat
               const retries = borderlineRetryRef.current.get(studentId) || 0;
               if (retries < 1) {
                 borderlineRetryRef.current.set(studentId, retries + 1);
-                onPendingCountChange?.(1);
+                syncPendingCount();
                 continue;
               }
             }
 
+            if (isRecognized && studentId && confidence < BORDERLINE_RETRY_CONFIDENCE) {
+              borderlineRetryRef.current.delete(studentId);
+              syncPendingCount();
+            }
+
           onFaceDetected(entry);
         } catch {
-          onPendingCountChange?.(0);
+          syncPendingCount();
           onFaceDetected({
             id: uuidv4(),
             studentName: 'Unknown Person',
@@ -588,7 +601,7 @@ const GateModeScanner = ({ onFaceDetected, isActive, onPendingCountChange }: Gat
     }
 
     processingRef.current = false;
-  }, [autoZone, detectionBox, getCurrentPeriodKey, onFaceDetected, onPendingCountChange]);
+  }, [autoZone, detectionBox, getCurrentPeriodKey, onFaceDetected, syncPendingCount]);
 
   // Detection interval
   useEffect(() => {
@@ -712,7 +725,7 @@ const GateModeScanner = ({ onFaceDetected, isActive, onPendingCountChange }: Gat
       {!isLoading && (
         <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-10">
           <div className="bg-card/80 backdrop-blur rounded-full px-4 py-2 border border-primary/30">
-            <p className="text-[11px] sm:text-xs font-semibold text-foreground">Place face inside highlighted zone</p>
+            <p className="text-[11px] sm:text-xs font-semibold text-foreground">Place face inside highlighted smart zone</p>
           </div>
         </div>
       )}
