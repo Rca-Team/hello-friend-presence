@@ -284,11 +284,14 @@ const AdminFacesList: React.FC<AdminFacesListProps> = ({
               return acc;
             }, {});
 
-            const dominantEntry = Object.entries(grouped).sort((a, b) => b[1].count - a[1].count)[0] as
-              | [string, { count: number; confidenceSum: number }]
-              | undefined;
-            const dominantLabel = dominantEntry?.[0] || 'neutral';
-            const dominant = dominantEntry?.[1] || { count: 0, confidenceSum: 0 };
+            let dominantLabel = 'neutral';
+            let dominant = { count: 0, confidenceSum: 0 };
+            for (const [label, stats] of Object.entries(grouped) as [string, { count: number; confidenceSum: number }][]) {
+              if (stats.count > dominant.count) {
+                dominantLabel = label;
+                dominant = stats;
+              }
+            }
             summary[face.employee_id] = {
               label: dominantLabel,
               confidence: dominant.count ? Math.round((dominant.confidenceSum / dominant.count) * 100) : 0,
