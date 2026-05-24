@@ -265,7 +265,7 @@ const GateMode = () => {
     }
 
     fetchGateStats();
-  }, [sessionId, gateName, playSound]);
+  }, [sessionId, gateName, playSound, cutoffHour, cutoffMinute, fetchGateStats]);
 
   const endSession = useCallback(async () => {
     if (sessionId) {
