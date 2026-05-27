@@ -81,12 +81,55 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
   const fetchStudents = async () => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('attendance_records')
-        .select('id, user_id, device_info, category, image_url')
-        .eq('status', 'registered');
+      const toFullImageUrl = (raw?: string | null) => {
+        if (!raw) return '';
+        if (raw.startsWith('data:') || raw.startsWith('http')) return raw;
+        return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/face-images/${raw}`;
+      };
 
-      if (error) throw error;
+      const [attendanceRes, descriptorsRes, profilesRes] = await Promise.all([
+        supabase
+          .from('attendance_records')
+          .select('id, user_id, device_info, category, image_url, created_at')
+          .eq('status', 'registered')
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('face_descriptors')
+          .select('user_id, student_id, image_url, created_at')
+          .not('image_url', 'is', null)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('profiles')
+          .select('user_id, avatar_url')
+          .not('avatar_url', 'is', null),
+      ]);
+
+      if (attendanceRes.error) throw attendanceRes.error;
+      if (descriptorsRes.error) throw descriptorsRes.error;
+      if (profilesRes.error) throw profilesRes.error;
+
+      const data = attendanceRes.data || [];
+
+      const profileImageByUserId = new Map<string, string>();
+      (profilesRes.data || []).forEach((profile: any) => {
+        if (profile?.user_id && profile?.avatar_url && !profileImageByUserId.has(profile.user_id)) {
+          profileImageByUserId.set(profile.user_id, toFullImageUrl(profile.avatar_url));
+        }
+      });
+
+      const descriptorImageByUserId = new Map<string, string>();
+      const descriptorImageByStudentKey = new Map<string, string>();
+      (descriptorsRes.data || []).forEach((descriptor: any) => {
+        const descriptorImg = toFullImageUrl(descriptor?.image_url);
+        if (!descriptorImg) return;
+        if (descriptor?.user_id && !descriptorImageByUserId.has(descriptor.user_id)) {
+          descriptorImageByUserId.set(descriptor.user_id, descriptorImg);
+        }
+        const studentKey = (descriptor?.student_id || '').toString().trim();
+        if (studentKey && !descriptorImageByStudentKey.has(studentKey)) {
+          descriptorImageByStudentKey.set(studentKey, descriptorImg);
+        }
+      });
 
       const employeeToUserId = new Map<string, string>();
       (data || []).forEach((record: any) => {
@@ -107,15 +150,12 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
           const canonicalUserId = record.user_id || (empKey ? employeeToUserId.get(empKey) : null);
           const userId = canonicalUserId || empKey || record.id;
           if (!uniqueStudents.has(userId)) {
-            const imageUrl = record.image_url || metadata.firebase_image_url;
-            let fullImageUrl = '';
-            if (imageUrl) {
-              if (imageUrl.startsWith('data:') || imageUrl.startsWith('http')) {
-                fullImageUrl = imageUrl;
-              } else {
-                fullImageUrl = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/face-images/${imageUrl}`;
-              }
-            }
+            const firstRegistrationImage = toFullImageUrl(record.image_url || metadata.firebase_image_url || '');
+            const fullImageUrl =
+              (canonicalUserId ? profileImageByUserId.get(canonicalUserId) : '') ||
+              (canonicalUserId ? descriptorImageByUserId.get(canonicalUserId) : '') ||
+              (empKey ? descriptorImageByStudentKey.get(empKey) : '') ||
+              firstRegistrationImage;
 
             uniqueStudents.set(userId, {
               id: userId,
@@ -185,7 +225,7 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
             background: repeating-linear-gradient(90deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 1px, transparent 8px);
           "></div>
           <div style="position: relative; z-index: 1; display: flex; align-items: center; gap: 10px;">
-            <img src="${logoSrc}" style="width: 56px; height: 56px; flex-shrink: 0; background: #ffffff; border-radius: 50%; padding: 4px; object-fit: contain; border: 2px solid #ffffff;" />
+            <img src="${logoSrc}" style="width: 64px; height: 64px; flex-shrink: 0; background: #ffffff; border-radius: 50%; padding: 5px; object-fit: contain; border: 2px solid #ffffff;" />
             <div style="flex: 1; text-align: left; min-width: 0;">
               <div style="font-size: 14px; font-weight: 800; color: #ffffff; letter-spacing: 0.5px; line-height: 1.1;">
                 ${SCHOOL_NAME}
@@ -675,7 +715,7 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
                       background: 'repeating-linear-gradient(90deg, rgba(255,255,255,0.1) 0px, rgba(255,255,255,0.1) 1px, transparent 1px, transparent 8px)'
                     }} />
                     <div className="relative z-10 flex items-center gap-2.5">
-                      <img src={kvLogo} alt="Kendriya Vidyalaya Sangathan logo" loading="lazy" width={56} height={56} className="w-14 h-14 flex-shrink-0 bg-white rounded-full p-1 object-contain border-2 border-white shadow" />
+                      <img src={kvLogo} alt="Kendriya Vidyalaya Sangathan logo" loading="lazy" width={64} height={64} className="w-16 h-16 flex-shrink-0 bg-white rounded-full p-1.5 object-contain border-2 border-white shadow" />
                       <div className="flex-1 min-w-0 text-left">
                         <p className="text-white font-extrabold text-[13px] sm:text-sm leading-tight">{SCHOOL_NAME}</p>
                         <p className="text-amber-400 font-bold text-[11px] leading-tight">{SCHOOL_SUBNAME}</p>
