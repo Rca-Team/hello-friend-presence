@@ -46,12 +46,55 @@ const StudentDetailsTable: React.FC = () => {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('attendance_records')
-        .select('id, user_id, status, device_info, category, image_url, timestamp')
-        .neq('status', 'unauthorized')
-        .order('timestamp', { ascending: false });
-      if (error) throw error;
+      const toFullImageUrl = (raw?: string | null) => {
+        if (!raw) return '';
+        if (raw.startsWith('data:') || raw.startsWith('http')) return raw;
+        return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/face-images/${raw}`;
+      };
+
+      const [attendanceRes, descriptorsRes, profilesRes] = await Promise.all([
+        supabase
+          .from('attendance_records')
+          .select('id, user_id, status, device_info, category, image_url, timestamp')
+          .neq('status', 'unauthorized')
+          .order('timestamp', { ascending: false }),
+        supabase
+          .from('face_descriptors')
+          .select('user_id, student_id, image_url, created_at')
+          .not('image_url', 'is', null)
+          .order('created_at', { ascending: true }),
+        supabase
+          .from('profiles')
+          .select('user_id, avatar_url')
+          .not('avatar_url', 'is', null),
+      ]);
+
+      if (attendanceRes.error) throw attendanceRes.error;
+      if (descriptorsRes.error) throw descriptorsRes.error;
+      if (profilesRes.error) throw profilesRes.error;
+
+      const data = attendanceRes.data || [];
+
+      const profileImageByUserId = new Map<string, string>();
+      (profilesRes.data || []).forEach((profile: any) => {
+        if (profile?.user_id && profile?.avatar_url && !profileImageByUserId.has(profile.user_id)) {
+          profileImageByUserId.set(profile.user_id, toFullImageUrl(profile.avatar_url));
+        }
+      });
+
+      const descriptorImageByUserId = new Map<string, string>();
+      const descriptorImageByStudentKey = new Map<string, string>();
+      (descriptorsRes.data || []).forEach((descriptor: any) => {
+        const descriptorImg = toFullImageUrl(descriptor?.image_url);
+        if (!descriptorImg) return;
+        if (descriptor?.user_id && !descriptorImageByUserId.has(descriptor.user_id)) {
+          descriptorImageByUserId.set(descriptor.user_id, descriptorImg);
+        }
+        const studentKey = (descriptor?.student_id || '').toString().trim();
+        if (studentKey && !descriptorImageByStudentKey.has(studentKey)) {
+          descriptorImageByStudentKey.set(studentKey, descriptorImg);
+        }
+      });
 
       const employeeToUserId = new Map<string, string>();
       (data || []).forEach((r: any) => {
@@ -73,15 +116,12 @@ const StudentDetailsTable: React.FC = () => {
         const key = (canonicalUserId || empKey || r.id) as string;
         if (map.has(key)) return;
 
-        let avatar = '';
-        const imageUrl = r.image_url || meta.firebase_image_url;
-        if (imageUrl) {
-          if (imageUrl.startsWith('data:') || imageUrl.startsWith('http')) {
-            avatar = imageUrl;
-          } else {
-            avatar = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/face-images/${imageUrl}`;
-          }
-        }
+        const firstRegistrationImage = toFullImageUrl(r.image_url || meta.firebase_image_url || '');
+        const avatar =
+          (canonicalUserId ? profileImageByUserId.get(canonicalUserId) : '') ||
+          (canonicalUserId ? descriptorImageByUserId.get(canonicalUserId) : '') ||
+          (empKey ? descriptorImageByStudentKey.get(empKey) : '') ||
+          firstRegistrationImage;
 
         map.set(key, {
           id: key,
