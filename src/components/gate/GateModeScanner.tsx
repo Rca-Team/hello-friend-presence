@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react';
-import { Eye, Loader2, Scan, Zap, ShieldCheck, ShieldAlert, SwitchCamera, Wand2, Square, Save, X as XIcon } from 'lucide-react';
+import { Eye, Loader2, Scan, Zap, ShieldCheck, ShieldAlert, SwitchCamera, Wand2, Square, Save, X as XIcon, Mic, MicOff, PauseCircle, PlayCircle, Brain } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { GateEntry } from '@/pages/GateMode';
 import { loadModels, areModelsLoaded } from '@/services/face-recognition/ModelService';
@@ -103,6 +103,67 @@ const GateModeScanner = ({
     if (periodKey) return periodKey;
     return `period-${new Date().toISOString().slice(0, 10)}-default`;
   }, [periodKey]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = true;
+    recognition.interimResults = false;
+
+    recognition.onresult = (event: any) => {
+      const transcript = event?.results?.[event.results.length - 1]?.[0]?.transcript?.toLowerCase?.() || '';
+      setVoiceCommand(transcript);
+
+      if (transcript.includes('pause scan') || transcript.includes('hold scanning')) {
+        setIsPausedByVoice(true);
+        speak('Scanner paused by voice command.');
+      }
+      if (transcript.includes('resume scan') || transcript.includes('continue scanning')) {
+        setIsPausedByVoice(false);
+        speak('Scanner resumed.');
+      }
+      if (transcript.includes('tight zone')) {
+        const z = detectionBox || autoZone;
+        if (z) {
+          setDetectionBox({
+            x: Math.min(0.9, z.x + 0.02),
+            y: Math.min(0.9, z.y + 0.02),
+            w: Math.max(0.2, z.w - 0.04),
+            h: Math.max(0.2, z.h - 0.04),
+          });
+          speak('Detection area tightened.');
+        }
+      }
+      if (transcript.includes('wider zone') || transcript.includes('expand zone')) {
+        const z = detectionBox || autoZone;
+        if (z) {
+          setDetectionBox({
+            x: Math.max(0, z.x - 0.02),
+            y: Math.max(0, z.y - 0.02),
+            w: Math.min(1, z.w + 0.04),
+            h: Math.min(1, z.h + 0.04),
+          });
+          speak('Detection area expanded.');
+        }
+      }
+    };
+
+    if (assistantVoiceEnabled && isActive) {
+      try {
+        recognition.start();
+        recognitionRef.current = recognition;
+      } catch {}
+    }
+
+    return () => {
+      try { recognition.stop(); } catch {}
+      recognitionRef.current = null;
+    };
+  }, [assistantVoiceEnabled, isActive, detectionBox, autoZone, speak]);
 
   // Load saved detection box for the active gate (uses first active gate row)
   useEffect(() => {
@@ -233,7 +294,7 @@ const GateModeScanner = ({
 
   // Continuous detection loop
   const detectLoop = useCallback(async () => {
-    if (processingRef.current || !videoRef.current || videoRef.current.paused) return;
+    if (isPausedByVoice || processingRef.current || !videoRef.current || videoRef.current.paused) return;
     processingRef.current = true;
 
     try {
@@ -263,6 +324,40 @@ const GateModeScanner = ({
             );
           })
         : detections;
+
+      if (!assistantBusyRef.current && now - assistantLastRunRef.current > 2500) {
+        assistantBusyRef.current = true;
+        assistantLastRunRef.current = now;
+        const avgConfidence = filteredDetections.length
+          ? filteredDetections.reduce((sum, d) => sum + d.detection.score, 0) / filteredDetections.length
+          : 0;
+
+        const recognizedInFrame = filteredDetections.reduce((count, d) => {
+          const descriptorKey = Array.from(d.descriptor.slice(0, 8)).map(v => v.toFixed(2)).join(',');
+          const existing = faceLabelsRef.current.get(descriptorKey);
+          return existing?.recognized ? count + 1 : count;
+        }, 0);
+
+        getAttendanceAssistantDecision({
+          facesInFrame: filteredDetections.length,
+          recognizedFaces: recognizedInFrame,
+          unknownFaces: Math.max(0, filteredDetections.length - recognizedInFrame),
+          averageConfidence: avgConfidence,
+          fps,
+          currentZone: activeZone,
+          cameraFacingMode: facingMode,
+        })
+          .then((decision) => {
+            setAssistantDecision(decision);
+            if (decision.shouldAdjustZone && decision.suggestedZone && !editingBox) {
+              setDetectionBox(decision.suggestedZone);
+            }
+            if (decision.voicePrompt) speak(decision.voicePrompt);
+          })
+          .finally(() => {
+            assistantBusyRef.current = false;
+          });
+      }
 
       // FPS counter
       fpsCounterRef.current.frames++;
@@ -589,7 +684,7 @@ const GateModeScanner = ({
     }
 
     processingRef.current = false;
-  }, [autoZone, cutoffHour, cutoffMinute, detectionBox, getCurrentPeriodKey, onFaceDetected, syncPendingCount]);
+  }, [autoZone, cutoffHour, cutoffMinute, detectionBox, getCurrentPeriodKey, onFaceDetected, syncPendingCount, isPausedByVoice, fps, facingMode, editingBox, speak]);
 
   // Detection interval
   useEffect(() => {
