@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -16,6 +16,7 @@ import {
 import { QRCodeSVG } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import { format } from 'date-fns';
+import { pickPreferredPhotoCandidate, resolveStudentPhotoUrl } from '@/utils/studentPhotoResolver';
 
 interface StudentData {
   id: string;
@@ -23,6 +24,9 @@ interface StudentData {
   employee_id: string;
   category: string;
   department?: string;
+  avatar_url?: string;
+  descriptor_image_url?: string;
+  registration_image_url?: string;
   image_url?: string;
   parent_phone?: string;
   parent_email?: string;
@@ -50,8 +54,32 @@ const StudentIDCard: React.FC<StudentIDCardProps> = ({
 }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [studentPhotoUrl, setStudentPhotoUrl] = useState('');
 
   const categoryColor = CATEGORY_COLORS[student.category] || CATEGORY_COLORS['A'];
+
+  useEffect(() => {
+    let active = true;
+
+    const fallbackCandidate = pickPreferredPhotoCandidate(
+      student.avatar_url,
+      student.descriptor_image_url,
+      student.registration_image_url,
+      student.image_url,
+    );
+
+    resolveStudentPhotoUrl(fallbackCandidate)
+      .then((resolved) => {
+        if (active) setStudentPhotoUrl(resolved);
+      })
+      .catch(() => {
+        if (active) setStudentPhotoUrl(fallbackCandidate || '');
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [student.avatar_url, student.descriptor_image_url, student.registration_image_url, student.image_url]);
 
   const handleDownload = async () => {
     if (!cardRef.current) return;
@@ -191,12 +219,9 @@ const StudentIDCard: React.FC<StudentIDCardProps> = ({
               {/* Photo */}
               <div className="flex flex-col items-center">
                 <div className="w-20 h-24 bg-white/10 rounded-lg overflow-hidden border-2 border-white/20">
-                  {student.image_url ? (
+                  {studentPhotoUrl ? (
                     <img 
-                      src={student.image_url.startsWith('data:') 
-                        ? student.image_url 
-                        : `https://zovwmlqnrsionbolcpng.supabase.co/storage/v1/object/public/face-images/${student.image_url}`
-                      } 
+                      src={studentPhotoUrl}
                       alt={student.name}
                       className="w-full h-full object-cover"
                       crossOrigin="anonymous"
