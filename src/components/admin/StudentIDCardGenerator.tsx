@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { getCategoryLabel } from '@/constants/schoolConfig';
+import { pickPreferredPhotoCandidate, resolveStudentPhotoUrl } from '@/utils/studentPhotoResolver';
 import kvLogo from '@/assets/kv-logo.png';
 import { 
   CreditCard, 
@@ -81,12 +82,6 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
   const fetchStudents = async () => {
     setIsLoading(true);
     try {
-      const toFullImageUrl = (raw?: string | null) => {
-        if (!raw) return '';
-        if (raw.startsWith('data:') || raw.startsWith('http')) return raw;
-        return `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/face-images/${raw}`;
-      };
-
       const [attendanceRes, descriptorsRes, profilesRes] = await Promise.all([
         supabase
           .from('attendance_records')
@@ -113,14 +108,14 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
       const profileImageByUserId = new Map<string, string>();
       (profilesRes.data || []).forEach((profile: any) => {
         if (profile?.user_id && profile?.avatar_url && !profileImageByUserId.has(profile.user_id)) {
-          profileImageByUserId.set(profile.user_id, toFullImageUrl(profile.avatar_url));
+          profileImageByUserId.set(profile.user_id, profile.avatar_url);
         }
       });
 
       const descriptorImageByUserId = new Map<string, string>();
       const descriptorImageByStudentKey = new Map<string, string>();
       (descriptorsRes.data || []).forEach((descriptor: any) => {
-        const descriptorImg = toFullImageUrl(descriptor?.image_url);
+        const descriptorImg = descriptor?.image_url?.toString().trim();
         if (!descriptorImg) return;
         if (descriptor?.user_id && !descriptorImageByUserId.has(descriptor.user_id)) {
           descriptorImageByUserId.set(descriptor.user_id, descriptorImg);
@@ -150,12 +145,13 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
           const canonicalUserId = record.user_id || (empKey ? employeeToUserId.get(empKey) : null);
           const userId = canonicalUserId || empKey || record.id;
           if (!uniqueStudents.has(userId)) {
-            const firstRegistrationImage = toFullImageUrl(record.image_url || metadata.firebase_image_url || '');
-            const fullImageUrl =
-              (canonicalUserId ? profileImageByUserId.get(canonicalUserId) : '') ||
-              (canonicalUserId ? descriptorImageByUserId.get(canonicalUserId) : '') ||
-              (empKey ? descriptorImageByStudentKey.get(empKey) : '') ||
-              firstRegistrationImage;
+            const imageCandidate = pickPreferredPhotoCandidate(
+              canonicalUserId ? profileImageByUserId.get(canonicalUserId) : '',
+              canonicalUserId ? descriptorImageByUserId.get(canonicalUserId) : '',
+              empKey ? descriptorImageByStudentKey.get(empKey) : '',
+              record.image_url,
+              metadata.firebase_image_url,
+            );
 
             uniqueStudents.set(userId, {
               id: userId,
@@ -167,14 +163,21 @@ const StudentIDCardGenerator: React.FC<StudentIDCardGeneratorProps> = ({ student
               parent_phone: metadata.parent_phone || '—',
               parent_name: metadata.parent_name || '—',
               transport_mode: metadata.transport_mode || '—',
-              avatar_url: fullImageUrl,
+              avatar_url: imageCandidate,
               address: metadata.address || '',
             });
           }
         }
       });
 
-      setStudents(Array.from(uniqueStudents.values()));
+      const resolvedStudents = await Promise.all(
+        Array.from(uniqueStudents.values()).map(async (student) => ({
+          ...student,
+          avatar_url: await resolveStudentPhotoUrl(student.avatar_url),
+        })),
+      );
+
+      setStudents(resolvedStudents);
     } catch (error) {
       console.error('Error fetching students:', error);
       toast({ title: 'Error', description: 'Failed to fetch student data', variant: 'destructive' });
