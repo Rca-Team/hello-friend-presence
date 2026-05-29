@@ -11,10 +11,13 @@ import {
   Calendar,
   CheckCircle2,
   Clock,
+  Flame,
   GraduationCap,
   Medal,
   RefreshCw,
   Search,
+  ShieldAlert,
+  Sparkles,
   TrendingUp,
   Trophy,
   UserCheck,
@@ -86,6 +89,8 @@ export default function ParentPortalPage() {
   const [studentLeaderboard, setStudentLeaderboard] = useState<LeaderboardItem | null>(null);
   const [summary, setSummary] = useState<ParentSummary | null>(null);
   const [isLive, setIsLive] = useState(false);
+  const [timeScope, setTimeScope] = useState<'today' | 'week' | 'month'>('week');
+  const [timelineFilter, setTimelineFilter] = useState<'all' | 'present' | 'late' | 'absent'>('all');
 
   const getImgUrl = (url: string) => (url?.startsWith('data:') ? url : url ? `${STORAGE_URL}${url}` : '');
 
@@ -206,17 +211,50 @@ export default function ParentPortalPage() {
   const statusView = {
     present: { title: 'Present', chip: 'bg-primary/10 text-primary border-primary/30' },
     late: { title: 'Late', chip: 'bg-secondary text-secondary-foreground border-border' },
-    absent: { title: 'Absent', chip: 'bg-muted text-muted-foreground border-border' },
+    absent: { title: 'Absent', chip: 'bg-destructive/15 text-destructive border-destructive/40' },
     weekend: { title: 'Weekend', chip: 'bg-muted text-muted-foreground border-border' },
-  }[statusLabel as 'present' | 'late' | 'absent' | 'weekend'] || { title: 'Absent', chip: 'bg-muted text-muted-foreground border-border' };
+  }[statusLabel as 'present' | 'late' | 'absent' | 'weekend'] || { title: 'Absent', chip: 'bg-destructive/15 text-destructive border-destructive/40' };
+
+  const gamified = useMemo(() => {
+    const present = summary?.presentDays ?? 0;
+    const late = summary?.lateDays ?? 0;
+    const absent = summary?.absentDays ?? 0;
+    const badgeCount = summary?.badgeCount ?? 0;
+    const streak = summary?.streak ?? 0;
+    const xpTotal = Math.max(0, present * 12 + late * 7 + badgeCount * 20 + streak * 10 - absent * 4);
+    const level = Math.max(1, Math.floor(xpTotal / 140) + 1);
+    const xpInLevel = xpTotal % 140;
+    const progress = Math.min(100, Math.round((xpInLevel / 140) * 100));
+
+    return {
+      xpTotal,
+      level,
+      xpInLevel,
+      xpToNext: 140 - xpInLevel,
+      progress,
+    };
+  }, [summary]);
+
+  const timelineRows = useMemo(() => {
+    const scoped =
+      timeScope === 'today'
+        ? attendance.filter((item) => isToday(new Date(item.timestamp)))
+        : timeScope === 'week'
+          ? attendance.slice(0, 12)
+          : attendance.slice(0, 30);
+
+    return timelineFilter === 'all'
+      ? scoped
+      : scoped.filter((item) => (item.status || '').toLowerCase().includes(timelineFilter));
+  }, [attendance, timeScope, timelineFilter]);
 
   const statCards = [
-    { label: 'Attendance Rate', value: `${summary?.attendanceRate ?? 0}%`, icon: TrendingUp },
-    { label: 'Present', value: summary?.presentDays ?? 0, icon: UserCheck },
-    { label: 'Late', value: summary?.lateDays ?? 0, icon: Clock },
-    { label: 'Absent', value: summary?.absentDays ?? 0, icon: UserX },
-    { label: 'Gate Entries Today', value: summary?.todayGateEntries ?? 0, icon: CheckCircle2 },
-    { label: 'Badges', value: summary?.badgeCount ?? 0, icon: Award },
+    { label: 'Attendance Rate', value: `${summary?.attendanceRate ?? 0}%`, icon: TrendingUp, tone: 'border-primary/40 bg-primary/10 text-primary' },
+    { label: 'Present', value: summary?.presentDays ?? 0, icon: UserCheck, tone: 'border-accent/40 bg-accent/20 text-foreground' },
+    { label: 'Late', value: summary?.lateDays ?? 0, icon: Clock, tone: 'border-secondary/40 bg-secondary/60 text-secondary-foreground' },
+    { label: 'Absent', value: summary?.absentDays ?? 0, icon: UserX, tone: 'border-destructive/40 bg-destructive/15 text-destructive' },
+    { label: 'Gate Entries Today', value: summary?.todayGateEntries ?? 0, icon: CheckCircle2, tone: 'border-primary/30 bg-primary/5 text-primary' },
+    { label: 'Badges', value: summary?.badgeCount ?? 0, icon: Award, tone: 'border-primary/30 bg-primary/5 text-primary' },
   ];
 
   return (
