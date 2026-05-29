@@ -378,10 +378,10 @@ export default function ParentPortalPage() {
 
             <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
               {statCards.map((s) => (
-                <Card key={s.label} className="border-border/80 bg-card/90">
+                <Card key={s.label} className={`border-border/80 bg-card/90 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-lg ${s.tone} animate-fade-in`}>
                   <CardContent className="p-4">
                     <div className="mb-2 flex items-center justify-between">
-                      <s.icon className="h-4 w-4 text-primary" />
+                      <s.icon className="h-4 w-4" />
                       <span className="text-[10px] text-muted-foreground">Live</span>
                     </div>
                     <p className="text-2xl font-black text-foreground">{s.value}</p>
@@ -392,33 +392,67 @@ export default function ParentPortalPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-              <Card className="lg:col-span-3">
+              <Card className="lg:col-span-3 animate-enter">
                 <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <Calendar className="h-4 w-4 text-primary" />
-                    Real Attendance Timeline
+                  <CardTitle className="flex items-center justify-between gap-2 text-base">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      Real Attendance Timeline
+                    </div>
+                    <div className="flex items-center gap-1 rounded-md border border-border bg-muted/40 p-1">
+                      {(['today', 'week', 'month'] as const).map((scope) => (
+                        <button
+                          key={scope}
+                          onClick={() => setTimeScope(scope)}
+                          className={`rounded px-2 py-1 text-[10px] font-semibold uppercase transition-all ${timeScope === scope ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                        >
+                          {scope}
+                        </button>
+                      ))}
+                    </div>
                   </CardTitle>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {(['all', 'present', 'late', 'absent'] as const).map((filter) => (
+                      <button
+                        key={filter}
+                        onClick={() => setTimelineFilter(filter)}
+                        className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold capitalize transition-all ${timelineFilter === filter ? filter === 'absent' ? 'border-destructive/50 bg-destructive/15 text-destructive' : 'border-primary/40 bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:text-foreground'}`}
+                      >
+                        {filter}
+                      </button>
+                    ))}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="max-h-80 space-y-2 overflow-auto pr-1">
-                    {attendance.length === 0 ? (
+                    {timelineRows.length === 0 ? (
                       <p className="py-4 text-center text-sm text-muted-foreground">No attendance records yet.</p>
                     ) : (
-                      attendance.slice(0, 20).map((item, idx) => (
-                        <div key={`${item.timestamp}-${idx}`} className="flex items-center justify-between rounded-lg border border-border/70 bg-muted/20 px-3 py-2">
+                      timelineRows.map((item, idx) => {
+                        const itemStatus = (item.status || '').toLowerCase();
+                        const isAbsent = itemStatus.includes('absent');
+                        const isLate = itemStatus.includes('late');
+                        const badgeClass = isAbsent
+                          ? 'border-destructive/50 bg-destructive/15 text-destructive'
+                          : isLate
+                            ? 'border-secondary/40 bg-secondary/60 text-secondary-foreground'
+                            : 'border-primary/40 bg-primary/10 text-primary';
+
+                        return (
+                        <div key={`${item.timestamp}-${idx}`} className={`flex items-center justify-between rounded-lg border px-3 py-2 transition-all ${isAbsent ? 'border-destructive/35 bg-destructive/10' : 'border-border/70 bg-muted/20'}`}>
                           <div>
                             <p className="text-sm font-semibold capitalize text-foreground">{item.status}</p>
                             <p className="text-xs text-muted-foreground">{format(new Date(item.timestamp), 'EEE, d MMM yyyy • h:mm a')}</p>
                           </div>
-                          <Badge variant="outline">Verified</Badge>
+                          <Badge className={badgeClass}>{isAbsent ? 'Alert' : isLate ? 'Late Mark' : 'Verified'}</Badge>
                         </div>
-                      ))
+                      )})
                     )}
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="lg:col-span-2">
+              <Card className="lg:col-span-2 animate-enter">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Trophy className="h-4 w-4 text-primary" />
@@ -449,7 +483,7 @@ export default function ParentPortalPage() {
             </div>
 
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
-              <Card className="lg:col-span-3">
+              <Card className="lg:col-span-3 animate-enter">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <TrendingUp className="h-4 w-4 text-primary" />
@@ -477,7 +511,7 @@ export default function ParentPortalPage() {
                 </CardContent>
               </Card>
 
-              <Card className="lg:col-span-2">
+              <Card className="lg:col-span-2 animate-enter">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-base">
                     <Users className="h-4 w-4 text-primary" />
@@ -494,7 +528,7 @@ export default function ParentPortalPage() {
                         return (
                           <div
                             key={row.id || idx}
-                            className={`flex items-center justify-between rounded-lg border px-3 py-2 ${isCurrent ? 'border-primary/40 bg-primary/10' : 'border-border/70 bg-muted/20'}`}
+                             className={`flex items-center justify-between rounded-lg border px-3 py-2 transition-all ${isCurrent ? 'border-primary/40 bg-primary/10 shadow-[0_6px_20px_-12px_hsl(var(--primary)/0.9)]' : 'border-border/70 bg-muted/20 hover:border-primary/30'}`}
                           >
                             <div className="flex items-center gap-2">
                               <div className="w-6 text-center text-sm font-bold text-foreground">#{row.rank || idx + 1}</div>
@@ -510,9 +544,12 @@ export default function ParentPortalPage() {
               </Card>
             </div>
 
-            <Card>
+            <Card className="animate-fade-in">
               <CardHeader className="pb-2">
-                <CardTitle className="text-base">{format(new Date(), 'MMMM yyyy')} Attendance Grid</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <ShieldAlert className="h-4 w-4 text-destructive" />
+                  {format(new Date(), 'MMMM yyyy')} Attendance Grid
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-7 gap-1.5">
@@ -534,7 +571,7 @@ export default function ParentPortalPage() {
                           ? 'bg-primary text-primary-foreground'
                           : entry.status === 'late'
                             ? 'bg-secondary text-secondary-foreground'
-                            : 'bg-muted text-muted-foreground';
+                            : 'bg-destructive text-destructive-foreground';
 
                       return (
                         <div
