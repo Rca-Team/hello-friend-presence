@@ -1,11 +1,27 @@
 import { sendLovableEmail } from 'npm:@lovable.dev/email-js'
 import { createClient } from 'npm:@supabase/supabase-js@2'
 
+const RESEND_GATEWAY_URL = 'https://connector-gateway.lovable.dev/resend'
 const MAX_RETRIES = 5
 const DEFAULT_BATCH_SIZE = 10
 const DEFAULT_SEND_DELAY_MS = 200
 const DEFAULT_AUTH_TTL_MINUTES = 15
 const DEFAULT_TRANSACTIONAL_TTL_MINUTES = 60
+
+type EmailPayload = {
+  run_id?: string
+  to: string | string[]
+  from: string
+  sender_domain: string
+  subject: string
+  html: string
+  text?: string
+  purpose: string
+  label?: string
+  idempotency_key?: string
+  unsubscribe_token?: string
+  message_id: string
+}
 
 // Check if an error is a rate-limit (429) response.
 // Uses EmailAPIError.status when available (email-js >=0.x with structured errors),
@@ -52,6 +68,89 @@ function parseJwtClaims(token: string): Record<string, unknown> | null {
   }
 }
 
+async function sendViaResendGateway(
+  payload: EmailPayload,
+  lovableApiKey: string,
+  resendApiKey: string
+): Promise<void> {
+  const to = Array.isArray(payload.to) ? payload.to : [payload.to]
+  const response = await fetch(`${RESEND_GATEWAY_URL}/emails`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${lovableApiKey}`,
+      'X-Connection-Api-Key': resendApiKey,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: payload.from,
+      to,
+      subject: payload.subject,
+      html: payload.html,
+      text: payload.text,
+    }),
+  })
+
+  if (!response.ok) {
+    const errorBody = await response.text()
+    throw new Error(`Resend gateway send failed [${response.status}]: ${errorBody}`)
+  }
+}
+
+async function sendViaLovable(payload: EmailPayload, apiKey: string): Promise<void> {
+  await sendLovableEmail(
+    {
+      run_id: payload.run_id,
+      to: payload.to,
+      from: payload.from,
+      sender_domain: payload.sender_domain,
+      subject: payload.subject,
+      html: payload.html,
+      text: payload.text,
+      purpose: payload.purpose,
+      label: payload.label,
+      idempotency_key: payload.idempotency_key,
+      unsubscribe_token: payload.unsubscribe_token,
+      message_id: payload.message_id,
+    },
+    { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
+  )
+}
+
+async function sendWithResendFallback(
+  payload: EmailPayload,
+  lovableApiKey: string,
+  resendApiKey: string | null
+): Promise<'resend' | 'lovable'> {
+  let resendError: unknown = null
+
+  if (resendApiKey) {
+    try {
+      await sendViaResendGateway(payload, lovableApiKey, resendApiKey)
+      return 'resend'
+    } catch (error) {
+      resendError = error
+      console.error('Resend delivery failed, falling back to Lovable Email', {
+        message_id: payload.message_id,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    }
+  }
+
+  try {
+    await sendViaLovable(payload, lovableApiKey)
+    return 'lovable'
+  } catch (lovableError) {
+    if (resendError) {
+      console.error('Fallback delivery failed on both providers', {
+        message_id: payload.message_id,
+        resend_error: resendError instanceof Error ? resendError.message : String(resendError),
+        lovable_error: lovableError instanceof Error ? lovableError.message : String(lovableError),
+      })
+    }
+    throw lovableError
+  }
+}
+
 // Move a message to the dead letter queue and log the reason.
 async function moveToDlq(
   supabase: ReturnType<typeof createClient>,
@@ -80,6 +179,7 @@ async function moveToDlq(
 
 Deno.serve(async (req) => {
   const apiKey = Deno.env.get('LOVABLE_API_KEY')
+  const resendApiKey = Deno.env.get('RESEND_API_KEY')
   const supabaseUrl = Deno.env.get('SUPABASE_URL')
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
 
@@ -249,25 +349,10 @@ Deno.serve(async (req) => {
       }
 
       try {
-        await sendLovableEmail(
-          {
-            run_id: payload.run_id,
-            to: payload.to,
-            from: payload.from,
-            sender_domain: payload.sender_domain,
-            subject: payload.subject,
-            html: payload.html,
-            text: payload.text,
-            purpose: payload.purpose,
-            label: payload.label,
-            idempotency_key: payload.idempotency_key,
-            unsubscribe_token: payload.unsubscribe_token,
-            message_id: payload.message_id,
-          },
-          // sendUrl is optional — when LOVABLE_SEND_URL is not set, the library
-          // falls back to the default Lovable API endpoint (https://api.lovable.dev).
-          // Set LOVABLE_SEND_URL as a Supabase secret to override (e.g. for local dev).
-          { apiKey, sendUrl: Deno.env.get('LOVABLE_SEND_URL') }
+        const provider = await sendWithResendFallback(
+          payload as EmailPayload,
+          apiKey,
+          resendApiKey ?? null
         )
 
         // Log success
@@ -276,6 +361,7 @@ Deno.serve(async (req) => {
           template_name: payload.label || queue,
           recipient_email: payload.to,
           status: 'sent',
+          error_message: provider === 'resend' ? 'sent_via_resend' : 'sent_via_lovable',
         })
 
         // Delete from queue
