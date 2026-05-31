@@ -56,7 +56,7 @@ const Navbar = () => {
       className={cn(
         "fixed top-0 left-0 right-0 z-50 px-6 md:px-8 py-4",
         isScrolled 
-          ? "bg-white/70 dark:bg-black/50 backdrop-blur-2xl shadow-lg border-b border-white/20 dark:border-white/10" 
+          ? "premium-glass-navbar backdrop-blur-3xl shadow-lg border-b" 
           : "bg-transparent backdrop-blur-sm"
       )}
       style={{ transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
