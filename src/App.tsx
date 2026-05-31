@@ -221,15 +221,17 @@ function App() {
             <Sonner />
             
             <HelmetProvider>
-              <BrowserRouter>
-                <SeoHead />
-                <AnimatedRoutes />
-                <AppExperienceLayer />
-                <MobileSidebar />
-                <PWAInstallPrompt />
-                <EmergencyAlertListener />
-                <RealtimeNotificationListener />
-              </BrowserRouter>
+              <div className="premium-glass-app">
+                <BrowserRouter>
+                  <SeoHead />
+                  <AnimatedRoutes />
+                  <AppExperienceLayer />
+                  <MobileSidebar />
+                  <PWAInstallPrompt />
+                  <EmergencyAlertListener />
+                  <RealtimeNotificationListener />
+                </BrowserRouter>
+              </div>
             </HelmetProvider>
           </TooltipProvider>
         </QueryClientProvider>
