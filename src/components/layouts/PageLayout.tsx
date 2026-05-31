@@ -83,7 +83,7 @@ const PageLayout: React.FC<PageLayoutProps> = ({
           ease: [0.34, 1.56, 0.64, 1]
         }}
         className={cn(
-          "flex-1 pt-20 md:pt-28 pb-8 md:pb-12 px-4 md:px-6 lg:px-8",
+          "flex-1 pt-20 md:pt-28 pb-8 md:pb-12 px-4 md:px-6 lg:px-8 premium-glass-main",
           fullWidth ? "" : "max-w-7xl mx-auto w-full",
           className
         )}
