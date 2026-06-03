@@ -245,7 +245,12 @@ const TeacherPortal: React.FC = () => {
                     <CardDescription>Continuous scanning — ideal for classroom door at start of period.</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <GateModeScanner isActive={true} onFaceDetected={() => loadTodayAttendance(activeClass)} />
+                    <GateModeScanner
+                      isActive={true}
+                      onFaceDetected={() => loadTodayAttendance(activeClass)}
+                      className={activeClass.class}
+                      section={activeClass.section}
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>
