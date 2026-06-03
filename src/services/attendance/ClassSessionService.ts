@@ -30,12 +30,13 @@ export const normalizeClassScope = (scope: ClassScope) => {
 };
 
 export const ensureActiveClassSession = async (scope: ClassScope): Promise<string | null> => {
+  const db = supabase as any;
   const normalized = normalizeClassScope(scope);
   if (!normalized) return null;
 
   const { className, section, subject } = normalized;
 
-  const { data: existing, error: readError } = await supabase
+  const { data: existing, error: readError } = await db
     .from('class_sessions')
     .select('id')
     .eq('class', className)
@@ -52,7 +53,7 @@ export const ensureActiveClassSession = async (scope: ClassScope): Promise<strin
 
   if (existing?.id) return existing.id;
 
-  const { data: created, error: createError } = await supabase
+  const { data: created, error: createError } = await db
     .from('class_sessions')
     .insert({
       class: className,
@@ -64,6 +65,19 @@ export const ensureActiveClassSession = async (scope: ClassScope): Promise<strin
     .single();
 
   if (createError) {
+    const { data: retryExisting } = await db
+      .from('class_sessions')
+      .select('id')
+      .eq('class', className)
+      .eq('section', section)
+      .eq('school_day', new Date().toISOString().slice(0, 10))
+      .eq('is_active', true)
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (retryExisting?.id) return retryExisting.id;
+
     throw new Error(`Failed to create class session: ${createError.message}`);
   }
 
@@ -79,7 +93,8 @@ export const upsertClassAttendanceEvent = async (params: {
   idempotencyKey?: string;
   metadata?: Record<string, unknown>;
 }) => {
-  const { data, error } = await supabase.rpc('upsert_class_attendance_event', {
+  const db = supabase as any;
+  const { data, error } = await db.rpc('upsert_class_attendance_event', {
     p_session_id: params.sessionId,
     p_student_id: params.studentId,
     p_status: params.status,
