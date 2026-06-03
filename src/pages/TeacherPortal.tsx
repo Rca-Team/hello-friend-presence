@@ -191,7 +191,12 @@ const TeacherPortal: React.FC = () => {
                     <CardDescription>Faces are matched against students registered to your class.</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <AttendanceCapture />
+                    <AttendanceCapture
+                      classScope={{
+                        className: activeClass.class,
+                        section: activeClass.section,
+                      }}
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>
