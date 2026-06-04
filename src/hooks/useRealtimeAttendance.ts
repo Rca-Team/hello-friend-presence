@@ -31,7 +31,9 @@ export const useRealtimeAttendance = (options: UseRealtimeAttendanceOptions = {}
   const { toast } = useToast();
   const [recentAttendance, setRecentAttendance] = useState<AttendanceUpdate[]>([]);
   const [isConnected, setIsConnected] = useState(false);
+  const [isRealtimeHealthy, setIsRealtimeHealthy] = useState(true);
   const optionsRef = useRef(options);
+  const lastRealtimeEventAtRef = useRef<number>(Date.now());
   optionsRef.current = options;
 
   useEffect(() => {
@@ -42,6 +44,26 @@ export const useRealtimeAttendance = (options: UseRealtimeAttendanceOptions = {}
     if (optionsRef.current.enablePushNotifications) {
       pushNotificationService.registerServiceWorker().catch(console.error);
     }
+
+    const fetchRecentFallback = async () => {
+      const { data } = await supabase
+        .from('attendance_records')
+        .select('id,user_id,status,timestamp,category,device_info')
+        .in('status', ['present', 'late'])
+        .order('timestamp', { ascending: false })
+        .limit(10);
+
+      if (!data || data.length === 0) return;
+
+      setRecentAttendance((prev) => {
+        const seen = new Set(prev.map((r) => r.id));
+        const next = [...prev];
+        for (const row of data) {
+          if (!seen.has(row.id)) next.unshift(row as AttendanceUpdate);
+        }
+        return next.slice(0, 20);
+      });
+    };
 
     const channel = supabase
       .channel('attendance-realtime')
@@ -55,6 +77,7 @@ export const useRealtimeAttendance = (options: UseRealtimeAttendanceOptions = {}
         async (payload: any) => {
           const record = payload.new as AttendanceUpdate;
           const opts = optionsRef.current;
+          lastRealtimeEventAtRef.current = Date.now();
 
           if (opts.useSessionEventsOnly !== false) {
             return;
@@ -115,6 +138,7 @@ export const useRealtimeAttendance = (options: UseRealtimeAttendanceOptions = {}
         async (payload: any) => {
           const event = payload.new as SessionAttendanceUpdate;
           const opts = optionsRef.current;
+          lastRealtimeEventAtRef.current = Date.now();
 
           if (event.status !== 'present' && event.status !== 'late') return;
 
@@ -144,9 +168,24 @@ export const useRealtimeAttendance = (options: UseRealtimeAttendanceOptions = {}
       )
       .subscribe((status) => {
         setIsConnected(status === 'SUBSCRIBED');
+        setIsRealtimeHealthy(status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT');
       });
 
+    let reconnectIntervalMs = 4000;
+    const healthCheck = window.setInterval(async () => {
+      const staleForMs = Date.now() - lastRealtimeEventAtRef.current;
+      if (!isConnected || staleForMs > 25000) {
+        setIsRealtimeHealthy(false);
+        await fetchRecentFallback();
+        reconnectIntervalMs = Math.min(reconnectIntervalMs * 1.25, 15000);
+      } else {
+        setIsRealtimeHealthy(true);
+        reconnectIntervalMs = 4000;
+      }
+    }, reconnectIntervalMs);
+
     return () => {
+      clearInterval(healthCheck);
       supabase.removeChannel(channel);
     };
     // Only run once on mount - options accessed via ref
@@ -159,6 +198,7 @@ export const useRealtimeAttendance = (options: UseRealtimeAttendanceOptions = {}
   return {
     recentAttendance,
     isConnected,
+    isRealtimeHealthy,
     clearRecentAttendance,
   };
 };
