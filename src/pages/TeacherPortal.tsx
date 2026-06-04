@@ -29,6 +29,7 @@ const TeacherPortal: React.FC = () => {
   const [today, setToday] = useState<AttRow[]>([]);
   const [periods, setPeriods] = useState<Period[]>([]);
   const [subs, setSubs] = useState<Substitution[]>([]);
+  const [isRealtimeHealthy, setIsRealtimeHealthy] = useState(true);
 
   // Gate authorization
   useEffect(() => {
@@ -135,15 +136,43 @@ const TeacherPortal: React.FC = () => {
     if (!activeClass) return;
     loadTodayAttendance(activeClass);
     loadTimetable(activeClass);
+    const todayDate = new Date().toISOString().slice(0, 10);
     const ch = supabase
       .channel(`teacher-att-${activeClass.class}-${activeClass.section}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_session_events' }, () => loadTodayAttendance(activeClass))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'class_sessions' }, () => loadTodayAttendance(activeClass))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_records', filter: `class=eq.${activeClass.class}` }, () => loadTodayAttendance(activeClass))
-      .subscribe();
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'class_sessions',
+          filter: `class=eq.${activeClass.class}`,
+        },
+        () => loadTodayAttendance(activeClass)
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'attendance_records',
+          filter: `class=eq.${activeClass.class}`,
+        },
+        () => loadTodayAttendance(activeClass)
+      )
+      .subscribe((status) => {
+        setIsRealtimeHealthy(status === 'SUBSCRIBED');
+      });
+
+    const fallbackPoll = window.setInterval(() => {
+      if (!isRealtimeHealthy) {
+        loadTodayAttendance(activeClass);
+      }
+    }, 12000);
+
     return () => { supabase.removeChannel(ch); };
+    clearInterval(fallbackPoll);
     // eslint-disable-next-line
-  }, [activeClass?.class, activeClass?.section]);
+  }, [activeClass?.class, activeClass?.section, isRealtimeHealthy]);
 
   const acceptSubstitution = async (subId: string) => {
     if (!userId) return;
@@ -218,6 +247,11 @@ const TeacherPortal: React.FC = () => {
                 <TabsTrigger value="today">Today</TabsTrigger>
                 <TabsTrigger value="timetable"><Calendar className="h-4 w-4 mr-1" />Plan</TabsTrigger>
               </TabsList>
+              <div className="mt-2">
+                <Badge variant={isRealtimeHealthy ? 'default' : 'secondary'}>
+                  {isRealtimeHealthy ? 'Realtime Connected' : 'Realtime Reconnecting'}
+                </Badge>
+              </div>
 
               {/* Take attendance — uses face capture, scoped to teacher's class */}
               <TabsContent value="attendance" className="mt-4">
