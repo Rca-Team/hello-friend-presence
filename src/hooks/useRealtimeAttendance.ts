@@ -24,6 +24,7 @@ interface UseRealtimeAttendanceOptions {
   onNewAttendance?: (record: AttendanceUpdate) => void;
   showNotifications?: boolean;
   enablePushNotifications?: boolean;
+  useSessionEventsOnly?: boolean;
 }
 
 export const useRealtimeAttendance = (options: UseRealtimeAttendanceOptions = {}) => {
@@ -54,6 +55,10 @@ export const useRealtimeAttendance = (options: UseRealtimeAttendanceOptions = {}
         async (payload: any) => {
           const record = payload.new as AttendanceUpdate;
           const opts = optionsRef.current;
+
+          if (opts.useSessionEventsOnly !== false) {
+            return;
+          }
 
           if (opts.categories && opts.categories.length > 0) {
             if (!record.category || !opts.categories.includes(record.category)) {
