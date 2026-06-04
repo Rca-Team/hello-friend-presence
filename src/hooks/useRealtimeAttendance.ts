@@ -34,6 +34,7 @@ export const useRealtimeAttendance = (options: UseRealtimeAttendanceOptions = {}
   const [isRealtimeHealthy, setIsRealtimeHealthy] = useState(true);
   const optionsRef = useRef(options);
   const lastRealtimeEventAtRef = useRef<number>(Date.now());
+  const isConnectedRef = useRef(false);
   optionsRef.current = options;
 
   useEffect(() => {
@@ -167,22 +168,21 @@ export const useRealtimeAttendance = (options: UseRealtimeAttendanceOptions = {}
         }
       )
       .subscribe((status) => {
-        setIsConnected(status === 'SUBSCRIBED');
+        const connected = status === 'SUBSCRIBED';
+        isConnectedRef.current = connected;
+        setIsConnected(connected);
         setIsRealtimeHealthy(status !== 'CHANNEL_ERROR' && status !== 'TIMED_OUT');
       });
 
-    let reconnectIntervalMs = 4000;
     const healthCheck = window.setInterval(async () => {
       const staleForMs = Date.now() - lastRealtimeEventAtRef.current;
-      if (!isConnected || staleForMs > 25000) {
+      if (!isConnectedRef.current || staleForMs > 25000) {
         setIsRealtimeHealthy(false);
         await fetchRecentFallback();
-        reconnectIntervalMs = Math.min(reconnectIntervalMs * 1.25, 15000);
       } else {
         setIsRealtimeHealthy(true);
-        reconnectIntervalMs = 4000;
       }
-    }, reconnectIntervalMs);
+    }, 5000);
 
     return () => {
       clearInterval(healthCheck);
