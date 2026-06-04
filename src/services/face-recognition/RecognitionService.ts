@@ -309,11 +309,7 @@ export async function recognizeFace(faceDescriptor: Float32Array): Promise<Recog
         const employeeData = deviceInfo?.metadata;
         
         let avatarUrl = employeeData?.firebase_image_url || '';
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('avatar_url')
-          .eq('user_id', bestMatch.userId)
-          .maybeSingle();
+        const profileData = await getCachedProfile(bestMatch.userId);
         
         if (profileData?.avatar_url) {
           avatarUrl = profileData.avatar_url;
@@ -421,11 +417,7 @@ export async function recognizeFace(faceDescriptor: Float32Array): Promise<Recog
 
       let avatarUrl = employeeData.firebase_image_url || '';
       if (legacyBestMatch.user_id && legacyBestMatch.user_id !== 'unknown') {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('avatar_url')
-          .eq('user_id', legacyBestMatch.user_id)
-          .maybeSingle();
+        const profileData = await getCachedProfile(legacyBestMatch.user_id);
         
         if (profileData?.avatar_url) {
           avatarUrl = profileData.avatar_url;
@@ -525,11 +517,7 @@ export async function recordAttendance(
     
     let userName = null;
     if (userId && userId !== 'unknown') {
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('display_name, username, full_name')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const profileData = await getCachedProfile(userId);
 
       if (profileData) {
         userName = profileData.display_name || profileData.full_name || profileData.username || null;
