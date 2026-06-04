@@ -175,8 +175,7 @@ export const useRealtimeAttendance = (options: UseRealtimeAttendanceOptions = {}
       });
 
     const healthCheck = window.setInterval(async () => {
-      const staleForMs = Date.now() - lastRealtimeEventAtRef.current;
-      if (!isConnectedRef.current || staleForMs > 25000) {
+      if (!isConnectedRef.current) {
         setIsRealtimeHealthy(false);
         await fetchRecentFallback();
       } else {
