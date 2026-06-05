@@ -66,7 +66,6 @@ const AttendanceCapture: React.FC<AttendanceCaptureProps> = ({ classScope }) => 
     status: 'present' | 'late';
     confidence: number;
     imageUrl: string;
-    attendanceRecordId?: string;
   } | null>(null);
   
   const {
@@ -532,7 +531,6 @@ const AttendanceCapture: React.FC<AttendanceCaptureProps> = ({ classScope }) => 
             confidence={pendingConfirm.confidence}
             status={pendingConfirm.status}
             imageUrl={pendingConfirm.imageUrl}
-            attendanceRecordId={pendingConfirm.attendanceRecordId}
             onConfirm={async () => {
               const c = pendingConfirm;
               setPendingConfirm(null);
