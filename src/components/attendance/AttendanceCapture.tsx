@@ -14,10 +14,8 @@ import { loadOptimizedModels } from '@/services/face-recognition/OptimizedModelS
 import { videoEnhancementService } from '@/services/ai/VideoEnhancementService';
 import { usePhotoEnhancer } from '@/hooks/usePhotoEnhancer';
 import { recordAttendance } from '@/services/face-recognition/RecognitionService';
-import { AlertCircle, Sparkles, Users, Camera, Wand2 } from 'lucide-react';
+import { AlertCircle, Camera, Wand2 } from 'lucide-react';
 import * as faceapi from 'face-api.js';
-
-const SKIP_CONFIRMATION_CONFIDENCE_THRESHOLD = 0.5;
 
 interface AttendanceCaptureClassScope {
   className?: string;
