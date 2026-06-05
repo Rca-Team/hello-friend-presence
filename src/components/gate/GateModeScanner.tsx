@@ -53,9 +53,12 @@ const GateModeScanner = ({
 }: GateModeScannerProps) => {
   const REDETECTION_COOLDOWN_MS = 5000;
   const DUPLICATE_COOLDOWN_MS = 30000;
-  const MIN_RECOGNITION_CONFIDENCE = 0.6;
-  const MIN_ATTENDANCE_MARK_CONFIDENCE = 0.5;
-  const BORDERLINE_RETRY_CONFIDENCE = 0.45;
+  const MIN_RECOGNITION_CONFIDENCE = 0.72;
+  const MIN_ATTENDANCE_MARK_CONFIDENCE = 0.84;
+  const BORDERLINE_RETRY_CONFIDENCE = 0.7;
+  const MIN_LIVENESS_DETECTION_SCORE = 0.87;
+  const STABILITY_WINDOW_MS = 8000;
+  const STABILITY_REQUIRED_HITS = 2;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -75,8 +78,13 @@ const GateModeScanner = ({
   const fpsCounterRef = useRef({ frames: 0, lastTime: Date.now() });
   const attendanceMarkedRef = useRef<Set<string>>(new Set());
   const recognizedCooldownRef = useRef<Map<string, number>>(new Map());
+  const stableHitsRef = useRef<Map<string, { hits: number; lastSeen: number }>>(new Map());
   const periodMarkedRef = useRef<Set<string>>(new Set());
   const borderlineRetryRef = useRef<Map<string, number>>(new Map());
+  const [qualityBlockedCount, setQualityBlockedCount] = useState(0);
+  const [autoMarkedCount, setAutoMarkedCount] = useState(0);
+  const [avgLatencyMs, setAvgLatencyMs] = useState(0);
+  const perfWindowRef = useRef<number[]>([]);
   const [autoZone, setAutoZone] = useState<DetectionBox | null>(null);
   // Store per-face labels for canvas overlay
   const faceLabelsRef = useRef<Map<string, { name: string; confidence: number; recognized: boolean }>>(new Map());
@@ -436,6 +444,8 @@ const GateModeScanner = ({
       // Process each detected face (only those inside the detection zone)
       for (const detection of filteredDetections) {
         const descriptorKey = Array.from(detection.descriptor.slice(0, 8)).map(v => v.toFixed(2)).join(',');
+        const livenessDetectionScore = detection.detection.score ?? 0;
+        const currentPeriodKey = getCurrentPeriodKey();
 
         // Cooldown: don't re-process same face within configured anti-spam window
         const lastSeen = cooldownRef.current.get(descriptorKey);
@@ -443,7 +453,24 @@ const GateModeScanner = ({
         cooldownRef.current.set(descriptorKey, now);
 
         try {
+          if (livenessDetectionScore < MIN_LIVENESS_DETECTION_SCORE) {
+            setQualityBlockedCount((prev) => prev + 1);
+            faceLabelsRef.current.set(descriptorKey, {
+              name: 'Low quality / potential spoof',
+              confidence: livenessDetectionScore,
+              recognized: false,
+            });
+            continue;
+          }
+
+          const recognitionStartedAt = performance.now();
           const result = await recognizeFace(detection.descriptor);
+          const recognitionLatency = performance.now() - recognitionStartedAt;
+          perfWindowRef.current.push(recognitionLatency);
+          if (perfWindowRef.current.length > 30) perfWindowRef.current.shift();
+          const avg = perfWindowRef.current.reduce((sum, ms) => sum + ms, 0) / perfWindowRef.current.length;
+          setAvgLatencyMs(Math.round(avg));
+
           const rawRecognized = result?.recognized || false;
           const rawConfidence = result?.confidence || detection.detection.score;
           const isRecognized = rawRecognized && rawConfidence >= MIN_RECOGNITION_CONFIDENCE;
@@ -490,10 +517,19 @@ const GateModeScanner = ({
             return [...filtered, { name: studentName, confidence, recognized: isRecognized, timestamp: now }].slice(-5);
           });
 
-            const currentPeriodKey = getCurrentPeriodKey();
-
             const nowTime = new Date();
             const isLateNow = nowTime.getHours() > cutoffHour || (nowTime.getHours() === cutoffHour && nowTime.getMinutes() >= cutoffMinute);
+
+            let isStableIdentity = false;
+            if (isRecognized && studentId) {
+              const stableKey = `${studentId}:${currentPeriodKey}`;
+              const existingStable = stableHitsRef.current.get(stableKey);
+              const nextHits = existingStable && now - existingStable.lastSeen <= STABILITY_WINDOW_MS
+                ? existingStable.hits + 1
+                : 1;
+              stableHitsRef.current.set(stableKey, { hits: nextHits, lastSeen: now });
+              isStableIdentity = nextHits >= STABILITY_REQUIRED_HITS;
+            }
 
             const entry: GateEntry = {
             id: uuidv4(),
@@ -511,6 +547,8 @@ const GateModeScanner = ({
             isRecognized &&
             studentId &&
             confidence >= MIN_ATTENDANCE_MARK_CONFIDENCE &&
+            livenessDetectionScore >= MIN_LIVENESS_DETECTION_SCORE &&
+            isStableIdentity &&
               !attendanceMarkedRef.current.has(studentId) &&
               !periodMarkedRef.current.has(`${studentId}:${currentPeriodKey}`)
           ) {
@@ -518,6 +556,7 @@ const GateModeScanner = ({
               syncPendingCount();
             attendanceMarkedRef.current.add(studentId);
               periodMarkedRef.current.add(`${studentId}:${currentPeriodKey}`);
+              setAutoMarkedCount((prev) => prev + 1);
             try {
               // Capture the video frame for the notification email
               let capturedImageDataUrl: string | undefined;
@@ -694,6 +733,18 @@ const GateModeScanner = ({
             <div className="bg-card/80 backdrop-blur rounded-full px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1">
               <Zap className="h-3 w-3 text-yellow-500" />
               <span className="text-[10px] sm:text-xs font-medium text-foreground">{fps} FPS</span>
+            </div>
+            <div className="bg-card/80 backdrop-blur rounded-full px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1">
+              <ShieldCheck className="h-3 w-3 text-emerald-500" />
+              <span className="text-[10px] sm:text-xs font-medium text-foreground">{autoMarkedCount} auto</span>
+            </div>
+            <div className="bg-card/80 backdrop-blur rounded-full px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1">
+              <ShieldAlert className="h-3 w-3 text-rose-500" />
+              <span className="text-[10px] sm:text-xs font-medium text-foreground">{qualityBlockedCount} blocked</span>
+            </div>
+            <div className="bg-card/80 backdrop-blur rounded-full px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1">
+              <Zap className="h-3 w-3 text-cyan-500" />
+              <span className="text-[10px] sm:text-xs font-medium text-foreground">{avgLatencyMs}ms</span>
             </div>
           </div>
 

@@ -10,14 +10,12 @@ import AttendanceResult from './AttendanceResult';
 import UnrecognizedFaceAlert from './UnrecognizedFaceAlert';
 import RecognizedFaceAlert from './RecognizedFaceAlert';
 import ScanConfirmation from './ScanConfirmation';
-import { supabase } from '@/integrations/supabase/client';
 import { loadOptimizedModels } from '@/services/face-recognition/OptimizedModelService';
 import { videoEnhancementService } from '@/services/ai/VideoEnhancementService';
 import { usePhotoEnhancer } from '@/hooks/usePhotoEnhancer';
-import { AlertCircle, Sparkles, Users, Camera, Wand2 } from 'lucide-react';
+import { recordAttendance } from '@/services/face-recognition/RecognitionService';
+import { AlertCircle, Camera, Wand2 } from 'lucide-react';
 import * as faceapi from 'face-api.js';
-
-const SKIP_CONFIRMATION_CONFIDENCE_THRESHOLD = 0.5;
 
 interface AttendanceCaptureClassScope {
   className?: string;
@@ -68,7 +66,6 @@ const AttendanceCapture: React.FC<AttendanceCaptureProps> = ({ classScope }) => 
     status: 'present' | 'late';
     confidence: number;
     imageUrl: string;
-    attendanceRecordId?: string;
   } | null>(null);
   
   const {
@@ -423,53 +420,38 @@ const AttendanceCapture: React.FC<AttendanceCaptureProps> = ({ classScope }) => 
       if (recognitionResult.type === 'single' && recognitionResult.single) {
         const single = recognitionResult.single;
         
-        if (single.recognized && single.employee) {
+          if (single.recognized && single.employee) {
           const displayStatus = single.status === 'present' ? 'present' : single.status === 'late' ? 'late' : 'unauthorized';
           
           // Use the captured image
           const imageUrl = imageDataUrl || capturedImage || '';
 
-          if (displayStatus === 'present' || displayStatus === 'late') {
+            if (displayStatus === 'present' || displayStatus === 'late') {
             const confidence = single.confidence ?? 0;
+              const autoMarked = Boolean(single.autoMarked);
 
-            if (confidence >= SKIP_CONFIRMATION_CONFIDENCE_THRESHOLD) {
-              setRecognizedAlert({
-                employee: single.employee,
-                status: displayStatus,
-                timestamp: new Date(),
-                imageUrl,
-              });
+              if (autoMarked) {
+                setRecognizedAlert({
+                  employee: single.employee,
+                  status: displayStatus,
+                  timestamp: new Date(),
+                  imageUrl,
+                });
 
-              toast({
-                title: 'Attendance Confirmed',
-                description: `${single.employee.name} marked as ${displayStatus} (${Math.round(confidence * 100)}% match)`,
-              });
+                toast({
+                  title: 'Attendance Confirmed',
+                  description: `${single.employee.name} marked as ${displayStatus} (${Math.round(confidence * 100)}% match)`,
+                });
 
-              return;
-            }
+                return;
+              }
 
-            // Look up the just-inserted attendance record id (for undo)
-            let recordId: string | undefined;
-            try {
-              const { data: latest } = await supabase
-                .from('attendance_records')
-                .select('id')
-                .eq('user_id', single.employee.id)
-                .order('timestamp', { ascending: false })
-                .limit(1)
-                .maybeSingle();
-              recordId = latest?.id;
-            } catch (e) {
-              console.warn('Could not fetch latest attendance id for undo:', e);
-            }
-
-            // Show confirmation screen — auto-confirms after 5s, can be undone
+            // Show confirmation screen when strict auto-mark gate is not met
             setPendingConfirm({
               employee: single.employee,
               status: displayStatus,
               confidence,
               imageUrl,
-              attendanceRecordId: recordId,
             });
           }
         } else {
@@ -549,10 +531,37 @@ const AttendanceCapture: React.FC<AttendanceCaptureProps> = ({ classScope }) => 
             confidence={pendingConfirm.confidence}
             status={pendingConfirm.status}
             imageUrl={pendingConfirm.imageUrl}
-            attendanceRecordId={pendingConfirm.attendanceRecordId}
-            onConfirm={() => {
+            onConfirm={async () => {
               const c = pendingConfirm;
               setPendingConfirm(null);
+
+              try {
+                await recordAttendance(
+                  c.employee.id,
+                  c.status,
+                  c.confidence,
+                  classScope
+                    ? {
+                        metadata: {
+                          class: classScope.className,
+                          section: classScope.section,
+                          subject: classScope.subject,
+                        },
+                      }
+                    : undefined,
+                  c.imageUrl,
+                  'ai-scan'
+                );
+              } catch (attendanceErr) {
+                console.error('Manual attendance confirmation failed:', attendanceErr);
+                toast({
+                  title: 'Could not save attendance',
+                  description: 'Please try confirming again.',
+                  variant: 'destructive',
+                });
+                return;
+              }
+
               setRecognizedAlert({
                 employee: c.employee,
                 status: c.status,
