@@ -12,6 +12,9 @@ export interface OptimizedFaceRecognitionResult {
     employee?: any;
     status?: 'present' | 'late' | 'unauthorized';
     confidence?: number;
+    qualityScore?: number;
+    autoMarked?: boolean;
+    strictEligible?: boolean;
     processingTime?: number;
   };
   multiple?: MultipleFaceResult;
@@ -32,6 +35,9 @@ export interface ProcessingOptions {
 }
 
 export const useOptimizedFaceRecognition = () => {
+  const AUTO_MARK_MIN_CONFIDENCE = 0.78;
+  const AUTO_MARK_MIN_QUALITY_SCORE = 0.86;
+
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isModelLoading, setIsModelLoading] = useState<boolean>(true);
   const [result, setResult] = useState<OptimizedFaceRecognitionResult | null>(null);
@@ -201,6 +207,12 @@ export const useOptimizedFaceRecognition = () => {
           if (recognitionResult.recognized) {
             const isPastCutoff = isPastCutoffTime(cutoffTime);
             const status = isPastCutoff ? 'late' : 'present';
+            const confidence = recognitionResult.confidence ?? 0;
+            const qualityScore = detection.detection.score ?? 0;
+            const strictEligible = recognitionResult.strictMetrics?.autoMarkEligible ?? false;
+            const autoMarked = strictEligible || (
+              confidence >= AUTO_MARK_MIN_CONFIDENCE && qualityScore >= AUTO_MARK_MIN_QUALITY_SCORE
+            );
             
             // Capture the current frame as data URL for the notification email
             let capturedImageDataUrl: string | undefined;
@@ -220,22 +232,24 @@ export const useOptimizedFaceRecognition = () => {
               capturedImageDataUrl = capCanvas.toDataURL('image/jpeg', 0.85);
             }
             
-            await recordAttendance(
-              recognitionResult.employee.id,
-              status,
-              recognitionResult.confidence,
-              options.classScope
-                ? {
-                    metadata: {
-                      class: options.classScope.className,
-                      section: options.classScope.section,
-                      subject: options.classScope.subject,
-                    },
-                  }
-                : undefined,
-              capturedImageDataUrl,
-              'ai-scan'
-            );
+            if (autoMarked) {
+              await recordAttendance(
+                recognitionResult.employee.id,
+                status,
+                recognitionResult.confidence,
+                options.classScope
+                  ? {
+                      metadata: {
+                        class: options.classScope.className,
+                        section: options.classScope.section,
+                        subject: options.classScope.subject,
+                      },
+                    }
+                  : undefined,
+                capturedImageDataUrl,
+                'ai-scan'
+              );
+            }
 
             // Store face sample for progressive training
             if (recognitionResult.confidence && recognitionResult.confidence > 0.75) {
@@ -271,13 +285,20 @@ export const useOptimizedFaceRecognition = () => {
                 recognized: true,
                 employee: recognitionResult.employee,
                 status,
-                confidence: recognitionResult.confidence,
+                confidence,
+                qualityScore,
+                autoMarked,
+                strictEligible,
                 processingTime: Date.now() - startTime
               },
               timestamp: new Date().toISOString()
             };
 
-            toast.success(`Welcome, ${recognitionResult.employee.name}!`);
+            if (autoMarked) {
+              toast.success(`Welcome, ${recognitionResult.employee.name}!`);
+            } else {
+              toast.warning('Face matched, but quality check requires manual confirmation.');
+            }
             recognizedCount.current++;
           } else {
             result = {
