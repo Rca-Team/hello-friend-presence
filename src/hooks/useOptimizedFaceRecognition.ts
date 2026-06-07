@@ -35,8 +35,8 @@ export interface ProcessingOptions {
 }
 
 export const useOptimizedFaceRecognition = () => {
-  const AUTO_MARK_MIN_CONFIDENCE = 0.78;
-  const AUTO_MARK_MIN_QUALITY_SCORE = 0.86;
+  const AUTO_MARK_MIN_CONFIDENCE = 0.5;
+  const AUTO_MARK_MIN_QUALITY_SCORE = 0;
 
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [isModelLoading, setIsModelLoading] = useState<boolean>(true);
