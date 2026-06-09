@@ -46,6 +46,72 @@ const NotificationService: React.FC<NotificationServiceProps> = ({
     return `School Attendance Notification - ${studentName}`;
   };
 
+  const resolveParentContact = async (lookupId: string, lookupName?: string) => {
+    // 1) profile by user_id
+    let { data: profile } = await supabase
+      .from('profiles')
+      .select('parent_email, parent_name, display_name')
+      .eq('user_id', lookupId)
+      .maybeSingle();
+
+    // 2) profile by id
+    if (!profile) {
+      const result = await supabase
+        .from('profiles')
+        .select('parent_email, parent_name, display_name')
+        .eq('id', lookupId)
+        .maybeSingle();
+      profile = result.data;
+    }
+
+    // 3) profile by display_name
+    if (!profile && lookupName) {
+      const result = await supabase
+        .from('profiles')
+        .select('parent_email, parent_name, display_name')
+        .ilike('display_name', lookupName)
+        .maybeSingle();
+      profile = result.data;
+    }
+
+    if (profile?.parent_email && profile.parent_email.trim() !== '') {
+      return {
+        parent_email: profile.parent_email.trim(),
+        parent_name: profile.parent_name || `Parent of ${profile.display_name || lookupName || 'Student'}`,
+      };
+    }
+
+    // 4) fallback to attendance metadata (for already-available details saved with records)
+    const byRecord = await supabase
+      .from('attendance_records')
+      .select('device_info')
+      .eq('id', lookupId)
+      .maybeSingle();
+
+    const byUser = await supabase
+      .from('attendance_records')
+      .select('device_info')
+      .eq('user_id', lookupId)
+      .order('timestamp', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const recordDeviceInfo = (byRecord.data?.device_info || byUser.data?.device_info) as any;
+    const metadata = recordDeviceInfo?.metadata && typeof recordDeviceInfo.metadata === 'object'
+      ? recordDeviceInfo.metadata
+      : {};
+
+    const fallbackEmail = metadata.parent_email;
+    if (typeof fallbackEmail === 'string' && fallbackEmail.trim() !== '') {
+      return {
+        parent_email: fallbackEmail.trim(),
+        parent_name: metadata.parent_name || `Parent of ${lookupName || metadata.name || 'Student'}`,
+      };
+    }
+
+    return null;
+  };
+
   const sendEmailNotification = async () => {
     if (!studentId) {
       toast({
@@ -58,64 +124,7 @@ const NotificationService: React.FC<NotificationServiceProps> = ({
 
     setIsLoading(true);
     try {
-      // Get parent contact information from attendance records or profiles
-      let parentInfo = null;
-      
-      // Try multiple lookup strategies for finding profiles
-      // 1. Try by user_id (for auth-based users)
-      let { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('user_id', studentId)
-        .maybeSingle();
-
-      // 2. If not found, try by id
-      if (!profile) {
-        const result = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', studentId)
-          .maybeSingle();
-        profile = result.data;
-      }
-
-      // 3. If still not found, try to find by display_name matching studentName
-      if (!profile && studentName) {
-        const result = await supabase
-          .from('profiles')
-          .select('*')
-          .ilike('display_name', studentName)
-          .maybeSingle();
-        profile = result.data;
-      }
-
-      // 4. Check face_descriptors to find the user_id and then lookup profile
-      if (!profile) {
-        const { data: faceData } = await supabase
-          .from('face_descriptors')
-          .select('user_id')
-          .eq('user_id', studentId)
-          .maybeSingle();
-        
-        if (faceData) {
-          // Try to find or create profile for this face user
-          const { data: faceProfile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('user_id', faceData.user_id)
-            .maybeSingle();
-          profile = faceProfile;
-        }
-      }
-
-      // Only use real parent email from profile - no demo emails
-      if (profile?.parent_email && profile.parent_email.trim() !== '') {
-        parentInfo = {
-          parent_email: profile.parent_email,
-          parent_phone: profile.parent_phone || '',
-          parent_name: profile.parent_name || `Parent of ${profile.display_name || studentName}`
-        };
-      }
+      const parentInfo = await resolveParentContact(studentId, studentName);
 
       if (!parentInfo) {
         toast({
@@ -170,35 +179,10 @@ const NotificationService: React.FC<NotificationServiceProps> = ({
   useEffect(() => {
     const checkParentDetailsAndStatus = async () => {
       if (open && studentId) {
-        // Check parent details - try multiple lookup strategies
-        let { data: profile } = await supabase
-          .from('profiles')
-          .select('parent_email, parent_name, display_name')
-          .eq('user_id', studentId)
-          .maybeSingle();
-
-        if (!profile) {
-          const result = await supabase
-            .from('profiles')
-            .select('parent_email, parent_name, display_name')
-            .eq('id', studentId)
-            .maybeSingle();
-          profile = result.data;
-        }
-
-        // Try by display_name if still not found
-        if (!profile && studentName) {
-          const result = await supabase
-            .from('profiles')
-            .select('parent_email, parent_name, display_name')
-            .ilike('display_name', studentName)
-            .maybeSingle();
-          profile = result.data;
-        }
-        
-        setHasParentEmail(!!(profile?.parent_email && profile.parent_email.trim() !== ''));
-        setParentEmail(profile?.parent_email || '');
-        setParentName(profile?.parent_name || '');
+        const parentInfo = await resolveParentContact(studentId, studentName);
+        setHasParentEmail(!!parentInfo?.parent_email);
+        setParentEmail(parentInfo?.parent_email || '');
+        setParentName(parentInfo?.parent_name || '');
 
         // Fetch actual attendance status for today
         const today = new Date().toISOString().split('T')[0];
