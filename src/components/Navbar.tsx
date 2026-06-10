@@ -92,7 +92,7 @@ const Navbar = () => {
                 {isActive(item.path) && (
                   <motion.div
                     layoutId="navbar-active-pill"
-                    className="absolute inset-0 bg-gradient-ios-blue rounded-full shadow-lg shadow-ios-blue/30"
+                    className="absolute inset-0 rounded-full bg-gradient-to-r from-[#e84393] to-[#6c5ce7] shadow-lg shadow-[#6c5ce7]/35"
                     transition={{ type: "spring", stiffness: 400, damping: 30 }}
                   />
                 )}
@@ -129,7 +129,7 @@ const Navbar = () => {
                 </Button>
               </Link>
               <Link to="/signup">
-                <Button variant="ios" size="sm" className="rounded-full px-5 animate-glow-pulse">
+                <Button size="sm" className="rounded-full bg-gradient-to-r from-[#e84393] to-[#6c5ce7] px-5 text-white shadow-lg shadow-[#6c5ce7]/35 hover:brightness-110">
                   Get Started
                 </Button>
               </Link>
