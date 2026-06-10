@@ -2,19 +2,48 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import rcaTeamLogo from '@/assets/rca-team-logo.jpg';
 import gauravPhoto from '@/assets/gaurav-photo.png';
-
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { motion } from 'framer-motion';
 import PageLayout from '@/components/layouts/PageLayout';
 import PageTransition from '@/components/PageTransition';
-import { 
-  Sparkles, Shield, Zap, Users, CheckCircle2, ArrowRight, Scan, Clock, 
-  BarChart3, Smartphone, GraduationCap, Bell, BookOpen, Bus, MapPin,
-  Camera, FileText, AlertTriangle, UserCheck, CalendarDays, Award,
-  MessageSquare, Fingerprint, DoorOpen, ClipboardList, Brain, Heart,
-  Building2, Globe, Lock, Layers, Star
+import {
+  ArrowRight,
+  Scan,
+  BookOpen,
+  Shield,
+  Bell,
+  BarChart3,
+  Bus,
+  Sparkles,
+  Zap,
+  Brain,
+  Smartphone,
+  Users,
+  Camera,
+  Clock,
+  DoorOpen,
+  CalendarDays,
+  UserCheck,
+  ClipboardList,
+  GraduationCap,
+  Layers,
+  Fingerprint,
+  Award,
+  Heart,
+  AlertTriangle,
+  MapPin,
+  Lock,
+  MessageSquare,
+  Globe,
+  FileText,
+  Building2,
 } from 'lucide-react';
+
+const cardTilt = {
+  whileHover: { rotateX: -4, rotateY: 5, y: -8, scale: 1.01 },
+  transition: { type: 'spring', stiffness: 260, damping: 20 },
+};
 
 const Index = () => {
   const [activeProfile, setActiveProfile] = useState<null | {
@@ -24,89 +53,89 @@ const Index = () => {
     bio: string;
   }>(null);
 
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.06 } }
-  };
-  const itemVariants = {
-    hidden: { opacity: 0, y: 16 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4 } }
-  };
-
-  const featureCategories = [
-    {
-      category: "AI-Powered Attendance",
-      icon: Scan,
-      gradient: "from-ios-blue to-ios-purple",
-      features: [
-        { icon: Camera, title: "Face Recognition", desc: "Millisecond facial detection with 99.9% accuracy" },
-        { icon: Users, title: "Multi-Face Scanning", desc: "Recognize multiple students simultaneously" },
-        { icon: DoorOpen, title: "Gate Mode", desc: "Kiosk scanning at entrances with stranger detection" },
-        { icon: Clock, title: "Auto Cutoff Alerts", desc: "Absence notifications to parents after cutoff" },
-      ]
-    },
-    {
-      category: "Timetable & Teachers",
-      icon: BookOpen,
-      gradient: "from-ios-green to-ios-mint",
-      features: [
-        { icon: CalendarDays, title: "Smart Timetable", desc: "8-period daily timetable management Mon-Sat" },
-        { icon: UserCheck, title: "Auto Substitution", desc: "AI detects absent teachers, assigns substitutes" },
-        { icon: ClipboardList, title: "Teacher Permissions", desc: "Granular class-section access control" },
-        { icon: FileText, title: "Substitution Reports", desc: "Printable daily substitute assignments" },
-      ]
-    },
-    {
-      category: "Student Management",
-      icon: GraduationCap,
-      gradient: "from-ios-purple to-violet",
-      features: [
-        { icon: Layers, title: "Class 6-12 Structure", desc: "Organized by classes & sections (A-D)" },
-        { icon: Fingerprint, title: "Bulk Registration", desc: "1000+ students via PDF, ID cards, or photos" },
-        { icon: Award, title: "Gamification", desc: "Badges, points & class leaderboards" },
-        { icon: Heart, title: "Wellness Scores", desc: "Attendance, punctuality & emotion metrics" },
-      ]
-    },
-    {
-      category: "Safety & Security",
-      icon: Shield,
-      gradient: "from-ios-red to-ios-orange",
-      features: [
-        { icon: AlertTriangle, title: "Emergency Alerts", desc: "Instant lockdown & fire alerts with sirens" },
-        { icon: UserCheck, title: "Visitor Management", desc: "Face recognition & QR badge for visitors" },
-        { icon: MapPin, title: "Zone Monitoring", desc: "Campus zone tracking with restricted alerts" },
-        { icon: Lock, title: "Stranger Detection", desc: "Alerts for unregistered faces at gates" },
-      ]
-    },
-    {
-      category: "Parent & Communication",
-      icon: MessageSquare,
-      gradient: "from-ios-orange to-ios-yellow",
-      features: [
-        { icon: Bell, title: "Smart Notifications", desc: "AI alerts via SMS, WhatsApp & email" },
-        { icon: Globe, title: "Parent Portal", desc: "View attendance, reports & announcements" },
-        { icon: FileText, title: "Digital Circulars", desc: "School-to-parent with acknowledgments" },
-        { icon: Bus, title: "Bus Tracking", desc: "Student boarding with parent notifications" },
-      ]
-    },
-    {
-      category: "Analytics & Reports",
-      icon: BarChart3,
-      gradient: "from-ios-mint to-ios-blue",
-      features: [
-        { icon: Brain, title: "AI Insights", desc: "Predictive absence analysis & intervention" },
-        { icon: BarChart3, title: "Advanced Reports", desc: "Class-wise & student-wise with PDF export" },
-        { icon: Building2, title: "Principal Dashboard", desc: "Real-time school-wide monitoring" },
-        { icon: CalendarDays, title: "Holiday Calendar", desc: "Indian academic calendar with state holidays" },
-      ]
-    },
+  const modules = [
+    { icon: Scan, label: 'Attendance', tone: 'text-[#6c5ce7] bg-[#6c5ce7]/20' },
+    { icon: BookOpen, label: 'Timetable', tone: 'text-[#e84393] bg-[#e84393]/20' },
+    { icon: Shield, label: 'Security', tone: 'text-[#ff6b35] bg-[#ff6b35]/20' },
+    { icon: Bell, label: 'Alerts', tone: 'text-[#f7931e] bg-[#f7931e]/20' },
+    { icon: BarChart3, label: 'Analytics', tone: 'text-[#6c5ce7] bg-[#6c5ce7]/20' },
+    { icon: Bus, label: 'Transport', tone: 'text-[#e84393] bg-[#e84393]/20' },
   ];
 
   const stats = [
-    { value: "99.9%", label: "Accuracy" },
-    { value: "<1s", label: "Speed" },
-    { value: "1000+", label: "Bulk Register" },
-    { value: "24/7", label: "Monitoring" }
+    { value: '99.9%', label: 'Attendance accuracy', glow: 'from-[#6c5ce7] to-[#e84393]' },
+    { value: '<1s', label: 'Face scan speed', glow: 'from-[#ff6b35] to-[#f7931e]' },
+    { value: '1000+', label: 'Bulk registrations', glow: 'from-[#e84393] to-[#6c5ce7]' },
+    { value: '24/7', label: 'Campus monitoring', glow: 'from-[#f7931e] to-[#ff6b35]' },
+  ];
+
+  const featureCategories = [
+    {
+      category: 'AI-Powered Attendance',
+      icon: Scan,
+      gradient: 'from-[#6c5ce7] to-[#e84393]',
+      features: [
+        { icon: Camera, title: 'Face Recognition', desc: 'Millisecond facial detection with high precision.' },
+        { icon: Users, title: 'Multi-Face Scanning', desc: 'Recognize multiple students at once in live gate flow.' },
+        { icon: DoorOpen, title: 'Gate Mode', desc: 'Kiosk-ready scanning with stranger detection.' },
+        { icon: Clock, title: 'Auto Cutoff Alerts', desc: 'Absence notifications sent after daily cutoff.' },
+      ],
+    },
+    {
+      category: 'Timetable & Teachers',
+      icon: BookOpen,
+      gradient: 'from-[#ff6b35] to-[#f7931e]',
+      features: [
+        { icon: CalendarDays, title: 'Smart Timetable', desc: 'Structured timetable management for all classes.' },
+        { icon: UserCheck, title: 'Auto Substitution', desc: 'Automatic replacement when a teacher is absent.' },
+        { icon: ClipboardList, title: 'Teacher Permissions', desc: 'Granular class-section access controls.' },
+        { icon: FileText, title: 'Substitution Reports', desc: 'Printable and shareable daily reports.' },
+      ],
+    },
+    {
+      category: 'Student Management',
+      icon: GraduationCap,
+      gradient: 'from-[#e84393] to-[#6c5ce7]',
+      features: [
+        { icon: Layers, title: 'Class Structure', desc: 'Organize students by classes and sections.' },
+        { icon: Fingerprint, title: 'Bulk Registration', desc: 'Import and register students at scale.' },
+        { icon: Award, title: 'Gamification', desc: 'Badges, points, and class leaderboards.' },
+        { icon: Heart, title: 'Wellness Scores', desc: 'Track punctuality and behavioral trends.' },
+      ],
+    },
+    {
+      category: 'Safety & Security',
+      icon: Shield,
+      gradient: 'from-[#f7931e] to-[#ff6b35]',
+      features: [
+        { icon: AlertTriangle, title: 'Emergency Alerts', desc: 'Instant lockdown and fire alerts.' },
+        { icon: UserCheck, title: 'Visitor Management', desc: 'Visitor face verification and QR pass flow.' },
+        { icon: MapPin, title: 'Zone Monitoring', desc: 'Track restricted areas with alerts.' },
+        { icon: Lock, title: 'Stranger Detection', desc: 'Unknown face detection at entry points.' },
+      ],
+    },
+    {
+      category: 'Parent & Communication',
+      icon: MessageSquare,
+      gradient: 'from-[#6c5ce7] to-[#ff6b35]',
+      features: [
+        { icon: Bell, title: 'Smart Notifications', desc: 'Targeted alerts through preferred channels.' },
+        { icon: Globe, title: 'Parent Portal', desc: 'Attendance, circulars, and performance access.' },
+        { icon: FileText, title: 'Digital Circulars', desc: 'Broadcast updates with acknowledgement trail.' },
+        { icon: Bus, title: 'Bus Tracking', desc: 'Boarding and route notifications to guardians.' },
+      ],
+    },
+    {
+      category: 'Analytics & Reports',
+      icon: BarChart3,
+      gradient: 'from-[#e84393] to-[#f7931e]',
+      features: [
+        { icon: Brain, title: 'AI Insights', desc: 'Predictive analysis for attendance risk.' },
+        { icon: BarChart3, title: 'Advanced Reports', desc: 'Class-level and student-level reporting.' },
+        { icon: Building2, title: 'Principal Dashboard', desc: 'Real-time school-wide command center.' },
+        { icon: CalendarDays, title: 'Holiday Calendar', desc: 'Academic calendar with schedule context.' },
+      ],
+    },
   ];
 
   const creatorMembers = [
@@ -126,302 +155,202 @@ const Index = () => {
   return (
     <PageTransition>
       <PageLayout className="overflow-hidden has-bottom-nav md:pb-0">
-        {/* Animated Background */}
-        <div className="fixed inset-0 -z-10 overflow-hidden">
-          <motion.div animate={{ scale: [1, 1.3, 1], opacity: [0.15, 0.3, 0.15] }} transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute top-0 left-1/4 w-40 sm:w-64 md:w-[500px] h-40 sm:h-64 md:h-[500px] bg-ios-blue/30 rounded-full blur-[60px] md:blur-[80px]" />
-          <motion.div animate={{ scale: [1.2, 1, 1.2], opacity: [0.2, 0.1, 0.2] }} transition={{ duration: 10, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-            className="absolute bottom-1/4 right-1/4 w-32 sm:w-60 md:w-[400px] h-32 sm:h-60 md:h-[400px] bg-ios-purple/30 rounded-full blur-[60px] md:blur-[80px]" />
-          <motion.div animate={{ scale: [1, 1.4, 1], opacity: [0.1, 0.2, 0.1] }} transition={{ duration: 12, repeat: Infinity, ease: "easeInOut", delay: 2 }}
-            className="absolute top-1/2 left-0 w-28 sm:w-48 md:w-[350px] h-28 sm:h-48 md:h-[350px] bg-ios-pink/25 rounded-full blur-[60px] md:blur-[80px]" />
+        <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[#050508]">
+          <div className="absolute top-1/4 -left-24 h-80 w-80 rounded-full bg-[#ff6b35]/25 blur-[110px]" />
+          <div className="absolute bottom-1/4 -right-20 h-80 w-80 rounded-full bg-[#6c5ce7]/25 blur-[110px]" />
+          <div className="absolute left-1/2 top-1/2 h-[700px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#e84393]/15 blur-[160px]" />
         </div>
 
-        {/* ===== HERO SECTION ===== */}
-        <section className="relative min-h-[calc(100vh-10rem)] sm:min-h-[90vh] flex items-center py-4 sm:py-8 md:py-16">
-          <motion.div className="w-full" initial="hidden" animate="visible" variants={containerVariants}>
-            <div className="grid lg:grid-cols-2 gap-4 sm:gap-8 lg:gap-16 items-center">
-              <div className="space-y-3 sm:space-y-5 md:space-y-8 text-center lg:text-left">
-                <motion.div variants={itemVariants} className="flex justify-center lg:justify-start">
-                  <span className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-1.5 sm:py-2.5 rounded-full bg-gradient-to-r from-ios-blue/15 to-ios-purple/15 border border-ios-blue/30 text-[11px] sm:text-sm font-semibold text-ios-blue backdrop-blur-xl">
-                    <Sparkles className="w-3.5 h-3.5 sm:w-5 sm:h-5 animate-pulse-subtle" />
-                    Complete School Automation
-                  </span>
-                </motion.div>
-
-                <motion.h1 variants={itemVariants} className="text-[32px] sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl font-bold leading-[1.15] sm:leading-tight px-2 sm:px-0">
-                  <span className="block">Your School,</span>
-                  <span className="block bg-clip-text text-transparent bg-gradient-to-r from-ios-blue via-ios-purple to-ios-pink">
-                    Fully Automated
-                  </span>
-                </motion.h1>
-
-                <motion.p variants={itemVariants} className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-xl mx-auto lg:mx-0 leading-relaxed px-3 sm:px-0">
-                  Face-recognition attendance, timetable, gate security, parent portal & AI analytics — one platform.
-                </motion.p>
-
-                <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-2.5 sm:gap-4 justify-center lg:justify-start px-3 sm:px-0">
-                  <Link to="/signup" className="w-full sm:w-auto">
-                    <Button variant="ios" size="lg" className="group w-full sm:w-auto h-11 sm:h-14 px-5 sm:px-8 text-sm sm:text-base touch-target">
-                      Get Started Free
-                      <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5 group-hover:translate-x-1 transition-transform" />
-                    </Button>
-                  </Link>
-                  <Link to="/parent" className="w-full sm:w-auto">
-                    <Button variant="ios-green" size="lg" className="group w-full sm:w-auto h-11 sm:h-14 px-5 sm:px-8 text-sm sm:text-base touch-target">
-                      <Users className="mr-2 h-4 w-4 sm:h-5 sm:w-5" />
-                      Parent Portal
-                    </Button>
-                  </Link>
-                  <Link to="/login" className="w-full sm:w-auto">
-                    <Button size="lg" variant="ios-glass" className="w-full sm:w-auto h-11 sm:h-14 px-5 sm:px-8 text-sm sm:text-base touch-target">
-                      Sign In
-                    </Button>
-                  </Link>
-                </motion.div>
-
-                <motion.div variants={itemVariants} className="mx-3 sm:mx-0 rounded-2xl border border-border/60 bg-card/70 backdrop-blur-xl p-3 sm:p-4 max-w-xl lg:max-w-none">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={rcaTeamLogo}
-                      alt="RCA Team logo"
-                      className="h-12 w-12 rounded-xl border border-border/60 object-cover"
-                      loading="lazy"
-                    />
-                    <div>
-                      <p className="text-sm font-semibold">Creator Team</p>
-                      <p className="text-xs text-muted-foreground">RCA Team</p>
-                    </div>
-                  </div>
-                  <div className="mt-3 grid gap-2">
-                    {creatorMembers.map((member) => (
-                      <button
-                        key={member.name}
-                        type="button"
-                        onClick={() => setActiveProfile(member)}
-                        className="group flex w-full items-center gap-3 rounded-xl border border-border/50 bg-background/40 p-2.5 text-left transition-all hover:border-primary/40 hover:bg-background/60 hover:shadow-md"
-                      >
-                        {member.image ? (
-                          <img
-                            src={member.image}
-                            alt={member.name}
-                            className="h-12 w-12 rounded-lg object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold text-primary">
-                            {member.name.slice(0, 1)}
-                          </div>
-                        )}
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          <span className="font-semibold text-foreground">{member.name}</span> — {member.role}
-                        </p>
-                        <ArrowRight className="ml-auto h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary" />
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-
-                <motion.div variants={itemVariants} className="flex flex-wrap items-center justify-center lg:justify-start gap-2 sm:gap-5 pt-1 sm:pt-4 px-2 sm:px-0">
-                  {["AI Powered", "Real-time", "Parent Portal", "Secure"].map((badge, i) => (
-                    <div key={i} className="flex items-center gap-1.5 sm:gap-2 text-xs sm:text-sm text-muted-foreground">
-                      <CheckCircle2 className="w-3 h-3 sm:w-4 sm:h-4 text-primary" />
-                      {badge}
-                    </div>
-                  ))}
-                </motion.div>
+        <section className="pt-2 pb-10 sm:pb-14">
+          <div className="grid grid-cols-12 gap-6">
+            <motion.div
+              className="col-span-12 lg:col-span-7 rounded-[2.5rem] border border-white/20 bg-white/[0.07] p-8 md:p-14 shadow-[0_20px_50px_rgba(0,0,0,0.3),inset_0_1px_2px_rgba(255,255,255,0.2)] backdrop-blur-3xl"
+              style={{ perspective: 900, transformStyle: 'preserve-3d' }}
+              {...cardTilt}
+            >
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-[11px] font-black uppercase tracking-widest text-[#f7931e]">
+                <Sparkles className="h-3.5 w-3.5" /> Complete School Automation
               </div>
 
-              {/* Hero Visual */}
-              <motion.div variants={itemVariants} className="relative flex justify-center lg:block"
-                style={{ perspective: 1000 }}>
-                <motion.div 
-                  className="relative group"
-                  whileHover={{ rotateY: -3, rotateX: 2, scale: 1.02 }}
-                  transition={{ type: "spring", stiffness: 200, damping: 20 }}
-                  style={{ transformStyle: 'preserve-3d' }}
-                >
-                  <div className="absolute -inset-4 bg-gradient-to-r from-primary/30 via-primary/30 to-accent/30 rounded-3xl blur-2xl opacity-60 group-hover:opacity-100 transition-opacity duration-500" />
-                  <div className="relative bg-gradient-to-br from-background via-background to-muted border border-primary/20 rounded-3xl p-6 md:p-8 shadow-2xl">
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-primary via-primary/80 to-accent rounded-t-3xl" />
+              <h1
+                className="mt-6 text-5xl font-extrabold leading-[1.05] text-white md:text-7xl"
+                style={{ fontFamily: 'Sora, sans-serif' }}
+              >
+                Your School,
+                <br />
+                <span className="bg-gradient-to-r from-[#ff6b35] via-[#e84393] to-[#6c5ce7] bg-clip-text text-transparent">
+                  Fully Automated
+                </span>
+              </h1>
 
-                    <div className="grid grid-cols-3 gap-3 mb-4">
-                      {[
-                        { icon: Scan, label: "Attendance", color: "text-ios-blue" },
-                        { icon: BookOpen, label: "Timetable", color: "text-ios-green" },
-                        { icon: Shield, label: "Security", color: "text-ios-red" },
-                        { icon: Bell, label: "Alerts", color: "text-ios-orange" },
-                        { icon: BarChart3, label: "Analytics", color: "text-ios-purple" },
-                        { icon: Bus, label: "Transport", color: "text-ios-mint" },
-                      ].map((mod, i) => (
-                        <motion.div key={i} initial={{ scale: 0, rotateY: -90 }} animate={{ scale: 1, rotateY: 0 }} 
-                          transition={{ delay: 0.5 + i * 0.1, type: "spring", stiffness: 150 }}
-                          whileHover={{ scale: 1.1, rotateY: 10 }}
-                          className="flex flex-col items-center gap-1.5 p-3 rounded-xl bg-card/50 border border-border/50 backdrop-blur-sm"
-                          style={{ transformStyle: 'preserve-3d' }}>
-                          <mod.icon className={`w-6 h-6 ${mod.color}`} />
-                          <span className="text-xs font-medium text-muted-foreground">{mod.label}</span>
-                        </motion.div>
-                      ))}
-                    </div>
-                    <div className="text-center space-y-2">
-                      <motion.div animate={{ opacity: [0.5, 1, 0.5] }} transition={{ duration: 2, repeat: Infinity }}
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 text-primary text-sm font-medium">
-                        <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                        All Systems Active
-                      </motion.div>
-                      <p className="text-sm text-muted-foreground">6 modules • Real-time sync</p>
-                    </div>
+              <p className="mt-6 max-w-xl text-lg leading-relaxed text-white/65 md:text-xl">
+                Face-recognition attendance, timetable, gate security, parent portal & AI analytics — one platform.
+              </p>
+
+              <div className="mt-10 flex flex-wrap gap-4">
+                <Link to="/signup">
+                  <Button className="h-14 rounded-2xl bg-gradient-to-r from-[#6c5ce7] to-[#e84393] px-8 text-base font-bold text-white shadow-2xl shadow-[#6c5ce7]/40 hover:brightness-110">
+                    Get Started Free <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+                <Link to="/parent">
+                  <Button className="h-14 rounded-2xl border border-white/20 bg-white/10 px-8 text-base font-bold text-white hover:bg-white/20">
+                    Parent Portal
+                  </Button>
+                </Link>
+              </div>
+            </motion.div>
+
+            <div className="col-span-12 grid grid-cols-2 gap-6 lg:col-span-5 lg:grid-rows-2">
+              <motion.div
+                className="col-span-2 rounded-[2.5rem] border border-white/10 bg-white/[0.05] p-8 shadow-[inset_0_1px_1px_rgba(255,255,255,0.1)] backdrop-blur-2xl"
+                style={{ perspective: 900, transformStyle: 'preserve-3d' }}
+                {...cardTilt}
+              >
+                <div className="mb-8 flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-[0.25em] text-white/40">System Modules</span>
+                  <div className="flex gap-1.5">
+                    <div className="h-2 w-2 rounded-full bg-[#ff6b35]/60" />
+                    <div className="h-2 w-2 rounded-full bg-[#e84393]/60" />
+                    <div className="h-2 w-2 rounded-full bg-[#6c5ce7] shadow-[0_0_8px_#6c5ce7]" />
                   </div>
-                </motion.div>
+                </div>
+                <div className="grid grid-cols-3 gap-4">
+                  {modules.map((mod) => (
+                    <motion.div
+                      key={mod.label}
+                      className="rounded-3xl border border-white/10 bg-white/5 p-4 text-center"
+                      whileHover={{ rotateX: -5, rotateY: 7, y: -4 }}
+                      transition={{ duration: 0.2 }}
+                      style={{ transformStyle: 'preserve-3d' }}
+                    >
+                      <div className={`mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-2xl ${mod.tone}`}>
+                        <mod.icon className="h-5 w-5" />
+                      </div>
+                      <p className="text-[10px] font-bold uppercase tracking-tight text-white/60">{mod.label}</p>
+                    </motion.div>
+                  ))}
+                </div>
+                <p className="mt-8 text-center text-xs font-bold tracking-widest text-[#6c5ce7]">ALL SYSTEMS OPERATIONAL</p>
+              </motion.div>
+
+              <motion.div
+                className="rounded-[2.5rem] border border-white/30 bg-gradient-to-br from-[#ff6b35]/90 to-[#f7931e]/90 p-8 text-white"
+                style={{ perspective: 900, transformStyle: 'preserve-3d' }}
+                {...cardTilt}
+              >
+                <Zap className="h-8 w-8" />
+                <p className="mt-14 text-4xl font-black" style={{ fontFamily: 'Sora, sans-serif' }}>2.4k</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/80">Daily Students</p>
+              </motion.div>
+
+              <motion.div
+                className="rounded-[2.5rem] border border-white/20 bg-white/[0.08] p-8 backdrop-blur-3xl"
+                style={{ perspective: 900, transformStyle: 'preserve-3d' }}
+                {...cardTilt}
+              >
+                <div className="flex items-center gap-3">
+                  <img src={rcaTeamLogo} alt="RCA Team logo" className="h-11 w-11 rounded-full border border-white/20 object-cover" loading="lazy" />
+                  <img src={gauravPhoto} alt="Gaurav" className="h-11 w-11 rounded-full border border-white/20 object-cover" loading="lazy" />
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#e84393] text-[10px] font-black text-white">+8</div>
+                </div>
+                <p className="mt-14 text-lg font-bold text-white">Creator Team</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/45">Real-time Sync</p>
               </motion.div>
             </div>
-          </motion.div>
+          </div>
         </section>
 
-        {/* ===== STATS ===== */}
-        <section className="py-6 sm:py-12 md:py-20">
-          <motion.div className="grid grid-cols-4 gap-2 sm:gap-4 md:gap-8" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={containerVariants}>
-            {stats.map((stat, i) => (
-              <motion.div key={i} variants={itemVariants}
-                whileHover={{ y: -4, rotateX: -5, scale: 1.03 }}
-                className="text-center p-3 sm:p-6 md:p-8 rounded-2xl sm:rounded-3xl bg-card/80 backdrop-blur-xl border border-border/50 shadow-sm sm:shadow-lg"
-                style={{ perspective: 600, transformStyle: 'preserve-3d' }}
+        <section className="pb-14">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
+            {stats.map((stat) => (
+              <motion.div
+                key={stat.label}
+                className="rounded-3xl border border-white/15 bg-white/[0.06] p-5 text-center backdrop-blur-xl"
+                style={{ perspective: 900, transformStyle: 'preserve-3d' }}
+                {...cardTilt}
               >
-                <motion.div initial={{ scale: 0, rotateY: -180 }} whileInView={{ scale: 1, rotateY: 0 }} transition={{ delay: i * 0.1, type: "spring", stiffness: 150 }}
-                  className="text-xl sm:text-4xl md:text-5xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-ios-blue via-ios-purple to-ios-pink">
+                <p className={`bg-gradient-to-r ${stat.glow} bg-clip-text text-3xl font-black text-transparent md:text-5xl`} style={{ fontFamily: 'Sora, sans-serif' }}>
                   {stat.value}
-                </motion.div>
-                <div className="mt-1 sm:mt-3 text-xs sm:text-sm font-medium text-muted-foreground">{stat.label}</div>
+                </p>
+                <p className="mt-2 text-xs font-semibold text-white/70 md:text-sm">{stat.label}</p>
               </motion.div>
             ))}
-          </motion.div>
+          </div>
         </section>
 
-        {/* ===== ALL FEATURES BY CATEGORY ===== */}
-        {featureCategories.map((cat, catIdx) => (
-          <section key={catIdx} className="py-8 sm:py-12 md:py-20">
-            <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: "-30px" }} variants={containerVariants}>
-              {/* Category Header */}
-              <motion.div variants={itemVariants} className="flex items-center gap-2.5 sm:gap-3 mb-5 sm:mb-8 md:mb-12">
-                <div className={`inline-flex p-2 sm:p-3 rounded-xl sm:rounded-2xl bg-gradient-to-br ${cat.gradient} shadow-lg`}>
-                  <cat.icon className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
-                </div>
-                <h2 className="text-2xl sm:text-2xl md:text-3xl lg:text-4xl font-bold">{cat.category}</h2>
-              </motion.div>
-
-              {/* Feature Cards - 2 columns on mobile, 4 on desktop */}
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4 md:gap-6">
-                {cat.features.map((feature, i) => (
-                  <motion.div key={i} variants={itemVariants} 
-                    whileHover={{ y: -8, rotateX: -3, rotateY: 2, scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="group relative p-3.5 sm:p-5 md:p-6 rounded-xl sm:rounded-2xl bg-card/80 backdrop-blur-xl border border-border/50 hover:border-primary/30 shadow-sm sm:shadow-lg hover:shadow-2xl overflow-hidden"
-                    style={{ transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)', perspective: 800, transformStyle: 'preserve-3d' }}
-                  >
-                    <div className={`absolute top-0 left-0 right-0 h-0.5 sm:h-1 bg-gradient-to-r ${cat.gradient} rounded-t-xl sm:rounded-t-2xl opacity-60 group-hover:opacity-100 transition-opacity`} />
-                    <div className={`absolute -top-12 -right-12 w-24 h-24 bg-gradient-to-br ${cat.gradient} rounded-full blur-2xl opacity-0 group-hover:opacity-20 transition-opacity duration-500`} />
-                    
-                    <div className={`relative inline-flex p-2 sm:p-3 rounded-lg sm:rounded-xl bg-gradient-to-br ${cat.gradient} mb-2.5 sm:mb-4 shadow-md group-hover:scale-110 group-hover:rotate-3 transition-transform duration-500`}
-                      style={{ transformStyle: 'preserve-3d', transform: 'translateZ(20px)' }}>
-                      <feature.icon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                    </div>
-                    
-                    <h3 className="relative text-sm sm:text-sm md:text-base font-bold mb-1 sm:mb-2 leading-tight" style={{ transform: 'translateZ(10px)' }}>{feature.title}</h3>
-                    <p className="relative text-xs sm:text-xs md:text-sm text-muted-foreground leading-relaxed line-clamp-3">{feature.desc}</p>
-                  </motion.div>
-                ))}
+        {featureCategories.map((cat) => (
+          <section key={cat.category} className="pb-14">
+            <div className="mb-6 flex items-center gap-3">
+              <div className={`inline-flex rounded-2xl bg-gradient-to-br p-3 ${cat.gradient}`}>
+                <cat.icon className="h-5 w-5 text-white" />
               </div>
-            </motion.div>
-          </section>
-        ))}
-
-        {/* ===== WHY PRESENCE ===== */}
-        <section className="py-8 sm:py-12 md:py-24">
-          <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={containerVariants}>
-            <motion.div variants={itemVariants} className="text-center mb-8 sm:mb-12">
-              <span className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-5 py-2 rounded-full bg-gradient-to-r from-ios-green/15 to-ios-mint/15 border border-ios-green/30 text-ios-green text-[11px] sm:text-sm font-semibold mb-4 sm:mb-6">
-                <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                Why Choose Presence
-              </span>
-              <h2 className="text-[26px] sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 sm:mb-4 px-2">One Platform, Complete Automation</h2>
-              <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
-                Replace 10+ separate tools with one intelligent system.
-              </p>
-            </motion.div>
-
-            <div className="grid sm:grid-cols-3 gap-3 sm:gap-6">
-              {[
-                { icon: Zap, title: "Instant Setup", desc: "Register students in bulk and go live in under an hour", gradient: "from-ios-yellow to-ios-orange" },
-                { icon: Brain, title: "AI-First Design", desc: "Face recognition to absence prediction — AI automates everything", gradient: "from-ios-purple to-violet" },
-                { icon: Smartphone, title: "Works Everywhere", desc: "PWA on any device — phones, tablets, kiosks, even offline", gradient: "from-ios-blue to-ios-mint" },
-              ].map((item, i) => (
-                <motion.div key={i} variants={itemVariants}
-                  className="relative p-5 sm:p-8 rounded-2xl sm:rounded-3xl bg-card/80 backdrop-blur-xl border border-border/50 shadow-sm sm:shadow-lg text-center"
+              <h2 className="text-3xl font-bold text-white md:text-4xl" style={{ fontFamily: 'Sora, sans-serif' }}>{cat.category}</h2>
+            </div>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4 md:gap-6">
+              {cat.features.map((feature) => (
+                <motion.div
+                  key={feature.title}
+                  className="group relative overflow-hidden rounded-3xl border border-white/15 bg-white/[0.06] p-5 backdrop-blur-xl"
+                  style={{ perspective: 900, transformStyle: 'preserve-3d' }}
+                  whileHover={{ rotateX: -4, rotateY: 6, y: -8 }}
+                  transition={{ type: 'spring', stiffness: 240, damping: 18 }}
                 >
-                  <div className={`inline-flex p-3 sm:p-4 rounded-xl sm:rounded-2xl bg-gradient-to-br ${item.gradient} mb-3 sm:mb-5 shadow-lg`}>
-                    <item.icon className="w-6 h-6 sm:w-8 sm:h-8 text-white" />
+                  <div className={`absolute left-0 top-0 h-1 w-full bg-gradient-to-r ${cat.gradient}`} />
+                  <div className={`mb-4 inline-flex rounded-2xl bg-gradient-to-br p-3 ${cat.gradient}`}>
+                    <feature.icon className="h-5 w-5 text-white" />
                   </div>
-                  <h3 className="text-lg sm:text-xl font-bold mb-2 sm:mb-3">{item.title}</h3>
-                  <p className="text-sm sm:text-base text-muted-foreground">{item.desc}</p>
+                  <h3 className="text-sm font-bold text-white md:text-base">{feature.title}</h3>
+                  <p className="mt-2 text-xs leading-relaxed text-white/65 md:text-sm">{feature.desc}</p>
                 </motion.div>
               ))}
             </div>
-          </motion.div>
-        </section>
+          </section>
+        ))}
 
-        {/* ===== CTA ===== */}
-        <section className="py-8 sm:py-12 md:py-24">
-          <motion.div className="relative overflow-hidden rounded-2xl sm:rounded-3xl bg-gradient-aurora p-6 sm:p-8 md:p-16" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={containerVariants}>
-            <div className="absolute inset-0 opacity-10">
-              <div className="absolute inset-0" style={{
-                backgroundImage: `radial-gradient(circle at 2px 2px, white 1px, transparent 0)`,
-                backgroundSize: '32px 32px'
-              }} />
-            </div>
-            <div className="relative text-center max-w-3xl mx-auto">
-              <motion.div variants={itemVariants} className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full bg-white/20 text-white text-xs sm:text-sm font-medium mb-4 sm:mb-6">
-                <GraduationCap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                Smart School Platform
-              </motion.div>
-              <motion.h2 variants={itemVariants} className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-4 sm:mb-6 px-2">
-                Ready to Automate Your School?
-              </motion.h2>
-              <motion.p variants={itemVariants} className="text-sm sm:text-lg text-white/80 mb-6 sm:mb-8 px-4">
-                Attendance, timetable, security, communication & more. No credit card required.
-              </motion.p>
-              <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4 px-4 sm:px-0">
-                <Link to="/signup" className="w-full sm:w-auto">
-                  <Button size="lg" className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base bg-background text-foreground hover:bg-background/90 shadow-lg">
-                    Get Started — It's Free
-                    <ArrowRight className="ml-2 h-4 w-4 sm:h-5 sm:w-5" />
+        <section className="pb-10">
+          <motion.div
+            className="relative overflow-hidden rounded-[2.5rem] border border-white/20 bg-gradient-to-r from-[#ff6b35] via-[#e84393] to-[#6c5ce7] p-8 md:p-14"
+            style={{ perspective: 900, transformStyle: 'preserve-3d' }}
+            {...cardTilt}
+          >
+            <div className="relative z-10 text-center">
+              <p className="mb-4 inline-flex items-center gap-2 rounded-full bg-white/20 px-4 py-2 text-xs font-semibold uppercase tracking-wider text-white">
+                <Smartphone className="h-4 w-4" /> Smart School Platform
+              </p>
+              <h2 className="text-3xl font-black text-white md:text-5xl" style={{ fontFamily: 'Sora, sans-serif' }}>Ready to Automate Your School?</h2>
+              <p className="mx-auto mt-4 max-w-2xl text-sm text-white/85 md:text-lg">
+                Attendance, timetable, security, communication and analytics in one bright, powerful system.
+              </p>
+              <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+                <Link to="/signup">
+                  <Button className="h-14 rounded-2xl bg-white px-8 text-base font-bold text-black hover:bg-white/90">
+                    Get Started — It's Free <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
-                <Link to="/contact" className="w-full sm:w-auto">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto h-12 sm:h-14 px-6 sm:px-8 text-sm sm:text-base border-2 border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10">
+                <Link to="/contact">
+                  <Button variant="outline" className="h-14 rounded-2xl border-white/50 bg-transparent px-8 text-base font-bold text-white hover:bg-white/15">
                     Contact Us
                   </Button>
                 </Link>
-              </motion.div>
+              </div>
             </div>
           </motion.div>
         </section>
+
         <Dialog open={Boolean(activeProfile)} onOpenChange={(open) => !open && setActiveProfile(null)}>
           <DialogContent className="max-w-md rounded-2xl border-border/70 bg-card/95 p-0 backdrop-blur-xl">
             {activeProfile && (
               <motion.div
-                initial={{ opacity: 0, y: 14, scale: 0.96 }}
+                initial={{ opacity: 0, y: 12, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                transition={{ duration: 0.25, ease: 'easeOut' }}
-                className="p-5 sm:p-6"
+                transition={{ duration: 0.2 }}
+                className="p-6"
               >
                 <DialogHeader className="space-y-3 text-left">
                   <div className="flex items-center gap-3">
                     {activeProfile.image ? (
-                      <img
-                        src={activeProfile.image}
-                        alt={activeProfile.name}
-                        className="h-16 w-16 rounded-xl border border-border/60 object-cover"
-                      />
+                      <img src={activeProfile.image} alt={activeProfile.name} className="h-16 w-16 rounded-xl border border-border/60 object-cover" />
                     ) : (
                       <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-primary/10 text-lg font-semibold text-primary">
                         {activeProfile.name.slice(0, 1)}
