@@ -88,26 +88,26 @@
   }
 
   .dark {
-    --background: 224 50% 6%;
-    --foreground: 210 40% 98%;
+    --background: 238 35% 8%;
+    --foreground: 26 64% 95%;
 
-    --card: 224 50% 9%;
-    --card-foreground: 210 40% 98%;
+    --card: 236 31% 13%;
+    --card-foreground: 26 64% 95%;
 
-    --popover: 224 50% 9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 236 31% 13%;
+    --popover-foreground: 26 64% 95%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 222 47% 11%;
+    --primary: 17 96% 58%;
+    --primary-foreground: 240 45% 10%;
 
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 243 28% 20%;
+    --secondary-foreground: 26 64% 95%;
 
-    --muted: 224 50% 13%;
-    --muted-foreground: 215 20% 55%;
+    --muted: 240 23% 16%;
+    --muted-foreground: 22 26% 76%;
 
-    --accent: 216 34% 17%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 323 72% 56%;
+    --accent-foreground: 17 100% 98%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
@@ -118,27 +118,30 @@
     --warning: 38 96% 64%;
     --warning-foreground: 222 47% 11%;
 
-    --border: 224 30% 16%;
-    --input: 224 30% 16%;
-    --ring: 224 76% 48%;
+    --border: 248 32% 27%;
+    --input: 248 32% 27%;
+    --ring: 323 72% 56%;
 
-    --gradient-start: rgba(8, 12, 22, 0.95);
-    --gradient-end: rgba(15, 23, 42, 0.95);
+    --gradient-start: rgba(13, 10, 33, 0.94);
+    --gradient-end: rgba(24, 17, 52, 0.94);
 
-    --sidebar-background: 224 50% 6%;
-    --sidebar-foreground: 210 40% 98%;
-    --sidebar-primary: 217 91% 60%;
-    --sidebar-primary-foreground: 222 47% 11%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 210 40% 98%;
-    --sidebar-border: 224 30% 16%;
-    --sidebar-ring: 224 76% 48%;
+    --sidebar-background: 238 35% 8%;
+    --sidebar-foreground: 26 64% 95%;
+    --sidebar-primary: 17 96% 58%;
+    --sidebar-primary-foreground: 240 45% 10%;
+    --sidebar-accent: 323 72% 56%;
+    --sidebar-accent-foreground: 17 100% 98%;
+    --sidebar-border: 248 32% 27%;
+    --sidebar-ring: 323 72% 56%;
 
     /* Neon accents for dark mode */
     --neon-cyan: 195 100% 70%;
     --neon-purple: 280 100% 75%;
     --neon-blue: 211 100% 65%;
-    --neon-pink: 340 100% 70%;
+    --neon-pink: 323 72% 56%;
+    --neon-orange: 17 96% 58%;
+    --neon-amber: 36 93% 55%;
+    --neon-violet: 253 79% 64%;
 
     /* iOS-inspired vibrant palette dark */
     --cyan: 195 100% 60%;
